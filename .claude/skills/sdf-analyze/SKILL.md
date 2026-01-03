@@ -252,6 +252,51 @@ Read docs/requirements/<dep-domain>/<dep-feature>.md
 
 **新 Domain**: 先更新 `docs/product_context.md`
 
+#### 规范类 Feature 的设计内嵌 ⭐
+
+**对于 `feature_kind: specification` 的 Feature**：
+
+> 规范类 Feature 的需求文档需要内嵌设计决策，无需创建独立的 des-xxx.md 设计文档。
+
+**需求文档必须包含 "Design Decisions (内嵌设计)" 部分**：
+
+```markdown
+## N. Design Decisions (内嵌设计)
+
+> 规范类 Feature 的设计内嵌在需求文档中，无需独立设计文档。
+
+### N.1 Trade-offs & Alternatives
+
+| Option | Description | Pros | Cons |
+|--------|-------------|------|------|
+| **选择的方案** | 描述 | 优点 | 缺点 |
+| 备选方案 | 描述 | 优点 | 缺点 |
+
+**Decision Rationale**:
+1. 理由 1
+2. 理由 2
+
+### N.2 Risks & Mitigations
+
+| Risk | Probability | Impact | Mitigation |
+|------|-------------|--------|------------|
+| 风险 | 概率 | 影响 | 缓解措施 |
+
+### N.3 Success Metrics
+
+| Metric | Target |
+|--------|--------|
+| 指标 | 目标值 |
+```
+
+**原因**：
+1. 规范类 Feature 的 Specification 部分已包含技术设计
+2. 避免需求文档与设计文档内容重复
+3. 符合 "Document is Truth" 单一数据源原则
+4. 参考 Claude 官方 "Concise is key" 最佳实践
+
+**参考**: `.claude/steering/workflow.md` Section 8: Feature Kind & Design Documents
+
 ### Step 4.5: 注册 Feature 到 Domain Index ⭐
 
 **目的**：将 Feature 注册到 Domain 的 index.md，使用完整项目路径。

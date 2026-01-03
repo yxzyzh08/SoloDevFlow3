@@ -405,10 +405,45 @@ Execute: sdf-test Skill
 - 完整测试流程 E2E 测试
 - 门控检查集成测试
 
+## 7. Design Decisions (内嵌设计)
+
+> 规范类 Feature 的设计内嵌在需求文档中，无需独立设计文档。
+
+### 7.1 Trade-offs & Alternatives
+
+| Option | Description | Pros | Cons |
+|--------|-------------|------|------|
+| **4 步精简** (选择) | Gate→Test→Verify→Decision | 简洁，聚焦验证 | 可能遗漏边缘情况 |
+| 7 步完整 | 原设计 | 更全面 | 过于复杂，T 阶段不需要 |
+| 独立报告 | 不更新 Feature 文档 | 解耦 | 数据不一致风险 |
+
+**Decision Rationale**:
+1. T 阶段核心是"确认"而非"发现"
+2. Feature 文档是单一数据源
+3. 轻量化报告减少维护负担
+4. 简化流程提高执行效率
+
+### 7.2 Risks & Mitigations
+
+| Risk | Probability | Impact | Mitigation |
+|------|-------------|--------|------------|
+| AC 验证不准确 | Medium | High | 决策树 + 人工确认 |
+| 自动化测试失败 | Low | Medium | 记录输出，返回 C 阶段 |
+| Feature 文档更新冲突 | Low | Low | 使用 Edit 工具精确更新 |
+
+### 7.3 Success Metrics
+
+| Metric | Target |
+|--------|--------|
+| 验证报告生成成功率 | 100% |
+| AC 状态同步准确率 | 100% |
+| T→Done 门控准确性 | 100% |
+
 ---
 
 *Feature: sdf-test*
 *Domain: CoreEngine*
 *Created: 2026-01-02*
-*Status: analyzing*
+*Status: done*
 *Dependencies Analyzed: true*
+*Feature Kind: specification*

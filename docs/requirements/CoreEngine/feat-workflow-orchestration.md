@@ -435,7 +435,41 @@ Phase 4: Workflow Specification ✅
 └── ✅ 迁移工作流详细规范到 WORKFLOW.md
 ```
 
-## 7. References
+## 7. Design Decisions (内嵌设计)
+
+> 规范类 Feature 的设计内嵌在需求文档中，无需独立设计文档。
+
+### 7.1 Trade-offs & Alternatives
+
+| Option | Description | Pros | Cons |
+|--------|-------------|------|------|
+| **3 层分离** (选择) | CLAUDE + WORKFLOW + Skills | 职责清晰，修改隔离 | 需要维护多个文件 |
+| 2 层分离 | CLAUDE + Skills | 文件少 | CLAUDE.md 仍较大 |
+| 全集中 | 全部在 CLAUDE.md | 单一入口 | 文件过大，修改频繁 |
+
+**Decision Rationale**:
+1. **稳定性**: CLAUDE.md 保持稳定，仅在核心原则变更时修改
+2. **可维护性**: WORKFLOW.md 专注流程，便于迭代优化
+3. **模块化**: Skills 独立演进，不影响规范文档
+4. **可查阅性**: WORKFLOW.md 作为单一参考入口
+
+### 7.2 Risks & Mitigations
+
+| Risk | Probability | Impact | Mitigation |
+|------|-------------|--------|------------|
+| 文档同步问题 | Medium | Medium | 在 WORKFLOW.md 中使用引用而非复制 |
+| 用户找不到规范 | Low | Medium | CLAUDE.md 明确引用 WORKFLOW.md |
+| Skills 与规范不一致 | Medium | High | T 阶段验证 Skills 符合规范 |
+
+### 7.3 Success Metrics
+
+| Metric | Target |
+|--------|--------|
+| CLAUDE.md 行数 | < 100 行 |
+| WORKFLOW.md 完整性 | 覆盖 100% 门控条件 |
+| 文档链接有效性 | 100% 可访问 |
+
+## 8. References
 
 - [Claude Code Best Practices - Anthropic](https://www.anthropic.com/engineering/claude-code-best-practices)
 - [Skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)
@@ -446,5 +480,6 @@ Phase 4: Workflow Specification ✅
 *Feature: workflow-orchestration*
 *Domain: CoreEngine*
 *Created: 2026-01-02*
-*Status: analyzing*
+*Status: done*
 *Dependencies Analyzed: true*
+*Feature Kind: specification*
