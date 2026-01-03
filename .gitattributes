@@ -1,0 +1,31 @@
+# Set default behavior to automatically normalize line endings
+* text=auto eol=lf
+
+# Source code files
+*.ts text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+
+# Config files
+.gitignore text eol=lf
+.gitattributes text eol=lf
+.editorconfig text eol=lf
+
+# Shell scripts
+*.sh text eol=lf
+
+# Windows batch files (keep CRLF)
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files (no conversion)
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.pdf binary

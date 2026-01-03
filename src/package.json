@@ -1,0 +1,24 @@
+{
+  "name": "solodevflow",
+  "version": "0.1.0",
+  "description": "AI-First development framework for solo developers",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test",
+    "status": "npx ts-node index.ts status",
+    "next": "npx ts-node index.ts next"
+  },
+  "keywords": ["ai-first", "development", "workflow"],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "ts-node": "^10.9.0"
+  },
+  "dependencies": {
+    "yaml": "^2.3.0",
+    "glob": "^10.3.0"
+  }
+}
