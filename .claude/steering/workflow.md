@@ -29,6 +29,7 @@ Commit             →    T (Testing)          验证 + 提交
 | Principle | Description |
 |-----------|-------------|
 | **Document is Truth** | 工作流状态存在文档中，而非 AI 记忆 |
+| **Document First** | 修改架构/规范时，先改文档再执行 |
 | **Dependency First** | 先分析依赖，再确定范围 |
 | **Planning First** | R/D 阶段使用 extended thinking |
 | **Gate Check** | 阶段转换需满足门控条件 |
@@ -224,9 +225,310 @@ designing → implementing → testing → done
 | no-blockers | 检查严重问题 | 无阻塞项 |
 | user-approved | 询问用户 | 用户确认 APPROVE |
 
-## 5. Backlog Mechanism
+## 5. Phase Transition (阶段推进)
 
-### 5.1 Backlog File
+阶段推进是工作流的核心。当用户说"进入下一阶段"、"推进"、"next"时触发。
+
+### 5.1 Transition Flow
+
+```
+用户: "推进 feat-xxx 到下一阶段"
+    ↓
+Step 1: 定位 Feature
+    ↓
+Step 2: 读取当前状态
+    ↓
+Step 3: 确定目标状态
+    ↓
+Step 4: 执行门控检查
+    ↓
+Step 5: 用户确认
+    ↓
+Step 6: 更新状态 + 触发下一阶段动作
+```
+
+### 5.2 State Transition Map
+
+```
+R Phase:
+  proposed → analyzing → analyzed → ready-for-design
+                              ↓
+                       waiting-deps (如有未完成依赖)
+
+R → D:
+  ready-for-design → designing
+
+D → C:
+  designing → implementing
+
+C → T:
+  implementing → testing
+
+T → Done:
+  testing → done
+```
+
+### 5.3 Transition Execution
+
+#### Step 1-2: Locate & Read
+
+```bash
+# 定位 Feature
+Glob docs/requirements/**/feat-<name>.md
+
+# 读取状态
+Read <feature-file>
+# 解析 YAML Frontmatter 中的 status 字段
+```
+
+#### Step 3: Determine Target
+
+| Current Status | Target Status | Transition |
+|----------------|---------------|------------|
+| proposed/analyzing/analyzed | ready-for-design | R 内部 |
+| ready-for-design | designing | R → D |
+| designing | implementing | D → C |
+| implementing | testing | C → T |
+| testing | done | T → Done |
+
+#### Step 4: Gate Check
+
+执行对应阶段的门控检查（详见 Section 4）。
+
+**门控检查输出格式**:
+
+```
+=== Phase Transition ===
+
+Feature: feat-xxx
+Current: analyzing
+Target: designing
+
+Gate Check (R → D):
+  [PASS] 依赖分析完成 (analyzed: true)
+  [PASS] 需求池已清空 (无相关待分析项)
+  [PASS] 前置依赖就绪 (无前置依赖)
+  [PASS] 无循环依赖
+
+Result: CAN PROCEED / CANNOT PROCEED
+```
+
+**如果门控失败**:
+
+```
+Result: CANNOT PROCEED
+
+Blockers:
+  1. 需求池有 2 个待分析项
+  2. 等待前置依赖完成: feat-xxx, feat-yyy
+
+Suggestions:
+  - 继续分析需求池中的项目
+  - 或使用 --force 强制推进 (不推荐)
+```
+
+#### Step 5: User Confirmation
+
+```
+门控检查通过。确认推进到 [target-phase]？
+
+- Yes → 执行状态更新
+- No → 取消操作
+```
+
+#### Step 6: Execute Transition
+
+```bash
+# 更新 Feature 文档状态
+Edit docs/requirements/<domain>/feat-<name>.md
+# status: <current> → <target>
+```
+
+**触发下一阶段动作**:
+
+| Target Phase | Action |
+|--------------|--------|
+| designing | 提示使用 sdf-design Skill 创建设计文档 |
+| implementing | 提示开始编码实现 |
+| testing | 提示使用 sdf-test Skill 验证 AC |
+| done | 更新统计，汇报完成 |
+
+### 5.4 Cycle Detection Algorithm
+
+检测循环依赖使用 DFS + Coloring：
+
+```
+WHITE = 未访问
+GRAY = 访问中（在当前路径上）
+BLACK = 已完成
+
+function detectCycle(featureId):
+  if color[featureId] == GRAY:
+    return true  // 发现环
+  if color[featureId] == BLACK:
+    return false
+
+  color[featureId] = GRAY
+  for each dep in requires[featureId]:
+    if detectCycle(dep):
+      return true
+  color[featureId] = BLACK
+  return false
+```
+
+### 5.5 Dependency Ready Check
+
+```
+function checkDepsReady(featureId, allFeatures):
+  feature = findFeature(featureId)
+  requires = feature.dependencies?.requires || []
+  notReady = []
+
+  for each depId in requires:
+    dep = findFeature(depId)
+    if !dep:
+      notReady.push(depId + " (不存在)")
+    else if dep.status in ['backlog', 'proposed', 'analyzing']:
+      notReady.push(depId + " (" + dep.status + ")")
+
+  return {
+    ready: notReady.length == 0,
+    notReady: notReady
+  }
+```
+
+### 5.6 Force Transition
+
+不推荐，但当用户明确要求时可以强制推进：
+
+```
+用户: "强制推进 feat-xxx"
+
+警告: 门控检查未通过，强制推进可能导致问题。
+确认强制推进？(需明确确认)
+```
+
+## 6. Specification Change Process
+
+当需要修改架构或规范（而非开发新 Feature）时，遵循此流程。
+
+### 6.1 适用场景
+
+| 场景 | 示例 | 适用流程 |
+|------|------|----------|
+| 新增 Feature | "添加用户认证功能" | R-D-C-T |
+| 修改架构/规范 | "合并 Commands 到 Skills" | **本流程** |
+| 修复 Bug | "修复登录失败问题" | R-D-C-T (简化) |
+
+**判断标准**：
+- 如果主要产出是**新代码/新功能** → R-D-C-T
+- 如果主要产出是**修改现有规范/架构** → Specification Change Process
+
+### 6.2 核心原则：Document First
+
+```
+❌ 错误：先执行变更 → 后更新文档
+✅ 正确：先修改文档 → 后执行变更
+```
+
+**原因**：
+1. Document is Truth - 文档是真理来源
+2. 文档先行确保变更经过思考
+3. 便于 Review 和回滚
+
+### 6.3 变更流程
+
+```
+Specification Change Process:
+
+Step 1: 识别变更类型
+    ↓
+Step 2: 修改规范文档
+    ↓
+Step 3: 执行实际变更
+    ↓
+Step 4: 验证一致性
+```
+
+#### Step 1: 识别变更类型
+
+| 变更类型 | 需修改的文档 |
+|----------|-------------|
+| 工作流程变更 | `.claude/steering/workflow.md` |
+| 架构变更 | `docs/architecture/ARCHITECTURE.md` |
+| 原则变更 | `docs/architecture/principles.md` |
+| 目录结构变更 | ADR + ARCHITECTURE.md |
+| Skill 结构变更 | workflow.md + 相关 Skill 文档 |
+
+#### Step 2: 修改规范文档
+
+**必须包含**：
+1. 变更内容描述
+2. 变更原因说明
+3. 新的规范定义
+
+**示例**：
+```markdown
+## 7. Skill Reference
+
+所有工作流操作通过 Skills 触发，不再使用独立 Commands。
+// ↑ 这就是规范变更，先写在文档里
+```
+
+#### Step 3: 执行实际变更
+
+规范文档修改完成后，再执行实际操作：
+- 删除/创建文件
+- 修改代码
+- 更新配置
+
+#### Step 4: 验证一致性
+
+```
+检查清单：
+- [ ] 实际状态与文档描述一致
+- [ ] 无残留的旧结构
+- [ ] 相关引用已更新
+```
+
+### 6.4 与 ADR 的关系
+
+| 变更规模 | 是否需要 ADR |
+|----------|-------------|
+| 小型调整 | 否，直接修改规范文档 |
+| 重大架构变更 | 是，先创建 ADR，再修改规范 |
+
+**重大变更标准**：
+- 影响多个组件
+- 引入新模式/废弃旧模式
+- 不可逆的结构变更
+
+### 6.5 示例：Commands → Skills 合并
+
+**正确流程**：
+
+```
+1. Step 1: 识别 → 工作流程变更 + Skill 结构变更
+
+2. Step 2: 修改文档
+   - workflow.md: 删除 Command Reference，添加 Skill Reference
+   - workflow.md: 说明 "不再使用独立 Commands"
+   - sdf-ask/SKILL.md: 添加 status 功能
+   - sdf-test/SKILL.md: 添加 AC 查询功能
+   - sdf-analyze/SKILL.md: 添加 backlog 管理功能
+
+3. Step 3: 执行变更
+   - 删除 .claude/commands/ 目录
+
+4. Step 4: 验证
+   - 确认 commands 目录不存在
+   - 确认 skills 包含所有功能
+   - 确认 workflow.md 引用正确
+```
+
+## 7. Backlog Mechanism
+
+### 7.1 Backlog File
 
 **Location**: `docs/requirements/backlog.md`
 
@@ -252,90 +554,77 @@ last_updated: YYYY-MM-DD
 | backlog-001 | feat-xxx | 2026-01-02 |
 ```
 
-### 5.2 Backlog Operations
+### 7.2 Backlog Operations
 
-| Command | Action |
-|---------|--------|
-| `/backlog list` | 查看待处理队列 |
-| `/backlog add` | 手动添加项目 |
-| `/backlog analyze` | 从池中取出分析 |
-| `/backlog stats` | 统计和门控检查 |
+Backlog 操作由 sdf-analyze Skill 提供，详见 `.claude/skills/sdf-analyze/SKILL.md`。
 
-## 6. Command Reference
+**触发词示例**:
+- "查看需求池" → list
+- "添加到需求池" → add
+- "分析需求池中的项目" → analyze
+- "需求池统计" → stats
 
-### 6.1 /analyze
+## 8. Skill Reference
 
-**Purpose**: 显式进入 R 阶段分析
+所有工作流操作通过 Skills 触发，不再使用独立 Commands。
 
-**Location**: `.claude/commands/analyze.md`
+### 8.1 sdf-analyze (R 阶段)
 
-**Usage**:
-```
-/analyze <feature-description>
-```
+**Location**: `.claude/skills/sdf-analyze/`
 
-### 6.2 /status
+**触发词**: "添加"、"实现"、"新功能"、"需求分析"、"backlog"
 
-**Purpose**: 查看 Feature 状态
+**能力**:
+- 需求分析和 Feature 文档创建
+- 依赖分析
+- Backlog 管理 (list/add/analyze/stats)
 
-**Location**: `.claude/commands/status.md`
+### 8.2 sdf-design (D 阶段)
 
-**Usage**:
-```
-/status              # 显示所有 Feature
-/status --graph      # 显示依赖图
-/status --order      # 显示执行顺序
-```
+**Location**: `.claude/skills/sdf-design/`
 
-**CLI Support**:
-```bash
-node dist/index.js status
-node dist/index.js status --graph
-node dist/index.js status --order
-```
+**触发词**: "设计"、"技术方案"、"进入 D 阶段"
 
-### 6.3 /next
+**能力**:
+- 读取架构文档
+- 生成设计文档
+- 架构一致性检查
 
-**Purpose**: 阶段推进 + 门控检查
+### 8.3 sdf-test (T 阶段)
 
-**Location**: `.claude/commands/next.md`
+**Location**: `.claude/skills/sdf-test/`
 
-**Usage**:
-```
-/next <feature-id>   # 检查并推进到下一阶段
-```
+**触发词**: "测试"、"验收"、"检查 AC"、"验证"
 
-**CLI Support**:
-```bash
-node dist/index.js next <feature-id>
-```
+**能力**:
+- C→T 和 T→Done 门控检查
+- AC 验证
+- 测试报告生成
+- AC 快速查询
 
-### 6.4 /ac
+### 8.4 sdf-ask (咨询与状态)
 
-**Purpose**: 验收标准检查
+**Location**: `.claude/skills/sdf-ask/`
 
-**Location**: `.claude/commands/ac.md`
+**触发词**: "进度"、"状态"、"有哪些功能"、"架构"、"Feature 索引"
 
-**Usage**:
-```
-/ac <feature-id>     # 检查 AC 完成情况
-```
+**能力**:
+- 产品咨询 (分析 + 建议)
+- Feature 索引 (结构化查询)
+- 验证检查
 
-### 6.5 /backlog
+### 8.5 Phase Transition (阶段推进)
 
-**Purpose**: 需求池管理
+**Location**: 本文档 Section 5
 
-**Location**: `.claude/commands/backlog.md`
+**触发词**: "推进"、"下一阶段"、"进入 D/C/T 阶段"
 
-**Usage**:
-```
-/backlog list        # 查看队列
-/backlog add         # 添加项目
-/backlog analyze     # 取出分析
-/backlog stats       # 统计信息
-```
+**能力**:
+- 门控检查
+- 状态更新
+- 触发对应阶段 Skill
 
-## 7. Thinking Level Guide
+## 9. Thinking Level Guide
 
 | Phase | Default Thinking | When to Upgrade |
 |-------|------------------|-----------------|
@@ -344,16 +633,16 @@ node dist/index.js next <feature-id>
 | C | 标准 | 复杂实现 → `think hard` |
 | T | `think hard` | 标准验证 → 标准模式 |
 
-## 8. Feature Kind & Design Documents
+## 10. Feature Kind & Design Documents
 
-### 8.1 Feature Kind 分类
+### 10.1 Feature Kind 分类
 
 | Kind | 定义 | 产出 | 示例 |
 |------|------|------|------|
 | `code` | 需要编写代码的功能 | `src/` 代码 | doc-indexer, dependency-graph |
 | `specification` | 定义规范或 Skill | SKILL.md 文件 | sdf-analyze, sdf-design, sdf-test, sdf-ask |
 
-### 8.2 设计文档策略
+### 10.2 设计文档策略
 
 | Feature Kind | 需要独立设计文档? | 原因 |
 |--------------|------------------|------|
@@ -370,7 +659,7 @@ node dist/index.js next <feature-id>
 >
 > 因此**无需创建独立的 des-xxx.md 设计文档**，避免重复维护。
 
-### 8.3 Frontmatter 标记
+### 10.3 Frontmatter 标记
 
 ```yaml
 # 代码类 Feature
@@ -380,14 +669,14 @@ feature_kind: code
 feature_kind: specification
 ```
 
-### 8.4 D 阶段行为差异
+### 10.4 D 阶段行为差异
 
 | Feature Kind | D 阶段行为 |
 |--------------|-----------|
 | `code` | 创建 `docs/design/<domain>/des-<name>.md` |
 | `specification` | 直接在需求文档 Specification 部分完善设计，无独立设计文档 |
 
-### 8.5 决策依据
+### 10.5 决策依据
 
 此策略基于以下最佳实践：
 
@@ -397,15 +686,15 @@ feature_kind: specification
 
 **参考**: [Claude Skill Best Practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)
 
-## 9. Quick Reference
+## 11. Quick Reference
 
-### 9.1 Phase Flow
+### 11.1 Phase Flow
 
 ```
 R → D → C → T → Done
 ```
 
-### 9.2 Key Files
+### 11.2 Key Files
 
 | Type | Pattern |
 |------|---------|
@@ -414,13 +703,14 @@ R → D → C → T → Done
 | Test Report | `docs/test-reports/<domain>/test-<name>.md` |
 | Backlog | `docs/requirements/backlog.md` |
 
-### 9.3 Skills
+### 11.3 Skills
 
 | Phase | Skill |
 |-------|-------|
 | R | `.claude/skills/sdf-analyze/` |
 | D | `.claude/skills/sdf-design/` |
 | T | `.claude/skills/sdf-test/` |
+| Query | `.claude/skills/sdf-ask/` |
 
 ---
 

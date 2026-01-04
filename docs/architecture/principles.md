@@ -23,6 +23,21 @@ last_updated: 2026-01-02
 
 ---
 
+### P1.1: Document First (P1 推论)
+
+**声明**: 修改架构或规范时，先修改文档再执行实际变更。
+
+**约束**:
+- 规范变更必须先更新相关文档（workflow.md / ARCHITECTURE.md / principles.md）
+- 文档变更完成后再执行实际操作（删除文件、修改代码等）
+- 变更后验证实际状态与文档一致
+
+**理由**: Document is Truth 的推论 —— 既然文档是真理，变更时应先更新真理来源。
+
+**流程**: 详见 `.claude/steering/workflow.md` Section 6: Specification Change Process
+
+---
+
 ### P2: AI-First Document Design
 
 **声明**: 文档结构和内容为 AI 理解能力优化，同时保持人类可读性。

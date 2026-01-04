@@ -1,28 +1,25 @@
 ---
 name: sdf-ask
 description: |
-  SoloDevFlow 产品咨询 Skill。
+  SoloDevFlow 产品咨询与状态查询 Skill。
   渐进式回答产品进度、功能、架构问题，避免回答不全。
-  当用户问"项目进度"、"有哪些功能"、"技术架构"等产品相关问题时触发。
-  提供分析洞察和下一步建议，与 /status 形成差异化。
+  同时提供 Feature 索引、状态统计、验证检查功能。
+  当用户问"项目进度"、"有哪些功能"、"技术架构"、"查看状态"等问题时触发。
 allowed-tools: Read, Glob, Grep
 ---
 
-# SDF Product Advisor
+# SDF Product Advisor & Status
 
-> 产品咨询 Skill - 渐进式回答产品进度、功能、架构问题，提供分析与建议。
+> 产品咨询 + 状态查询 Skill - 渐进式回答产品问题，提供分析建议，同时支持结构化状态索引。
 
-## 核心理念
+## 核心能力
 
-**与 /status 的差异化**
+本 Skill 整合两种输出模式：
 
-| 维度 | /status | /ask |
-|------|---------|------|
-| **输出形式** | 表格/结构化数据 | 自然语言 + 解释 |
-| **深度** | 事实陈述 | 事实 + **分析** + **建议** |
-| **交互** | 单次输出 | 可引导追问 |
-| **阻塞分析** | 仅列出状态 | 解释阻塞原因 |
-| **建议** | 无 | 提供下一步行动建议 |
+| 模式 | 触发词 | 输出风格 |
+|------|--------|----------|
+| **咨询模式** | "进度怎样"、"介绍功能"、"为什么" | 自然语言 + 分析 + 建议 |
+| **索引模式** | "查看状态"、"Feature 列表"、"验证" | 表格 + 结构化数据 |
 
 ## 边界判定
 
@@ -303,6 +300,113 @@ Glob docs/architecture/adr/*.md
 建议使用 claude-code-guide agent 获取帮助：
 - 它专门回答 Claude Code 的功能、配置、使用问题
 ```
+
+## 索引模式 (原 /status 功能)
+
+当用户明确要求"查看状态"、"Feature 索引"、"验证检查"时，使用索引模式输出。
+
+### 索引模式执行流程
+
+```
+Index Mode Progress:
+- [ ] Step 1: 扫描 Feature 文件
+- [ ] Step 2: 解析并验证每个文件
+- [ ] Step 3: 计算反向链接
+- [ ] Step 4: 按 Domain 分组统计
+- [ ] Step 5: 格式化输出
+```
+
+### Step 1: 扫描 Feature 文件
+
+```bash
+Glob("docs/requirements/**/feat-*.md")
+Glob("docs/requirements/**/bug-*.md")
+Glob("docs/requirements/**/enh-*.md")
+```
+
+排除 `index.md` 和 `backlog.md`。
+
+### Step 2: 解析并验证
+
+对每个文件解析 YAML Frontmatter，提取字段：
+
+**Required Fields** (缺失报 Error):
+- `id`: 必须以 `feat-`、`bug-`、`enh-` 开头
+- `type`: 必须是 `feature` | `bug` | `enhancement`
+- `domain`: 必须是已注册的 Domain
+- `status`: 必须是有效状态枚举
+- `priority`: 必须是 `critical` | `high` | `medium` | `low`
+- `summary`: 一句话描述
+
+**Validation Rules**:
+| Rule | Severity | Check |
+|------|----------|-------|
+| id-required | Error | id 字段存在 |
+| id-format | Error | id 以 feat-/bug-/enh- 开头 |
+| id-unique | Error | id 全局唯一 |
+| type-enum | Error | type 值有效 |
+| status-enum | Error | status 值有效 |
+| priority-enum | Error | priority 值有效 |
+| summary-required | Error | summary 字段存在 |
+| summary-length | Warning | summary 10-100 字符 |
+| tags-recommended | Warning | tags 字段存在 |
+| deps-exist | Warning | requires 中的 ID 存在 |
+
+### Step 3: 计算反向链接
+
+```
+for each feature A:
+  A.computed = { requiredBy: [], blockedBy: [] }
+
+for each feature A:
+  for each feature B:
+    if A.id in B.dependencies.requires:
+      A.computed.requiredBy.push(B.id)
+    if A.id in B.dependencies.blocks:
+      A.computed.blockedBy.push(B.id)
+```
+
+### Step 4: 分组统计
+
+```
+domains = groupBy(features, 'domain')
+stats = {
+  total: features.length,
+  byStatus: countBy(features, 'status'),
+  byPriority: countBy(features, 'priority'),
+  analyzedCount: count(f => f.analyzed == true),
+  validCount: count(f => f.errors.length == 0)
+}
+```
+
+### Step 5: 索引模式输出格式
+
+```
+=== Feature Index ===
+
+Validation: {errors} errors, {warnings} warnings
+
+Domain: {domain} ({count} features)
+| ID | Status | Priority | Summary |
+|----|--------|----------|---------|
+| feat-xxx | done | high | 一句话描述 |
+
+Stats:
+- Total: N features
+- By Status: done(5), implementing(2)
+- By Priority: critical(2), high(3)
+- Analyzed: M/N
+```
+
+### 索引模式参数
+
+| 参数 | 说明 |
+|------|------|
+| 无参数 | 显示全局状态概览 |
+| `--detail` | 显示详细信息（含依赖关系） |
+| `--validate` | 显示完整验证结果 |
+| `<domain>` | 显示指定 Domain 的 Feature |
+| `<feature-id>` | 显示指定 Feature 详情 |
 
 ## 参考资料
 

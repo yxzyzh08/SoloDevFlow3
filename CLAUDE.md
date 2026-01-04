@@ -27,10 +27,11 @@
 | # | Principle | Description |
 |---|-----------|-------------|
 | 1 | **Document is Truth** | 工作流状态存在文档中，而非 AI 记忆 |
-| 2 | **Dependency First** | 先分析依赖，再确定范围 |
-| 3 | **Planning First** | R/D 阶段使用 extended thinking |
-| 4 | **Gate Check** | 阶段转换需满足门控条件 |
-| 5 | **AC Driven** | 验收标准是唯一判定依据 |
+| 2 | **Document First** | 修改架构/规范时，先改文档再执行 |
+| 3 | **Dependency First** | 先分析依赖，再确定范围 |
+| 4 | **Planning First** | R/D 阶段使用 extended thinking |
+| 5 | **Gate Check** | 阶段转换需满足门控条件 |
+| 6 | **AC Driven** | 验收标准是唯一判定依据 |
 
 ## 工作流规范
 

@@ -366,6 +366,148 @@ cd src && npx ts-node "../.claude/skills/sdf-analyze/scripts/register-feature.ts
 [x] 需求池有 Z 个待分析 → 建议继续分析: backlog-xxx
 ```
 
+## Backlog 管理模式 (原 /backlog 功能)
+
+当用户需要管理需求池时，使用 Backlog 管理模式。
+
+**触发词**: "查看需求池"、"backlog"、"待分析需求"、"添加到需求池"
+
+### Backlog 文件结构
+
+**Location**: `docs/requirements/backlog.md`
+
+```markdown
+---
+type: backlog
+last_updated: YYYY-MM-DD
+---
+
+# Backlog
+
+## Pending (待分析)
+
+| ID | Description | Domain | Priority | Source | Added |
+|----|-------------|--------|----------|--------|-------|
+| backlog-001 | xxx | CoreEngine | high | feat-xx | 2026-01-02 |
+
+## Completed (已完成)
+
+| ID | Feature | Completed |
+|----|---------|-----------|
+| backlog-001 | feat-xxx | 2026-01-02 |
+```
+
+### Backlog 操作
+
+#### 查看需求池 (list)
+
+**触发**: "查看需求池"、"backlog list"
+
+```bash
+Read docs/requirements/backlog.md
+```
+
+**输出**:
+```
+=== 需求池状态 ===
+
+统计:
+- 待分析: 3
+- 已完成: 5
+
+待分析队列 (按优先级排序):
+| ID | 描述 | Domain | Priority | 来源 |
+|----|------|--------|----------|------|
+| backlog-003 | 用户认证 | CoreEngine | critical | feat-xx |
+| backlog-001 | Session 管理 | CoreEngine | high | feat-xx |
+
+建议: 优先分析 backlog-003 (优先级最高)
+```
+
+#### 添加到需求池 (add)
+
+**触发**: "添加到需求池"、"新需求"
+
+```bash
+# 1. 读取当前 backlog
+Read docs/requirements/backlog.md
+
+# 2. 生成新 ID (backlog-XXX，递增)
+# 3. 添加到 Pending 表格
+Edit docs/requirements/backlog.md
+```
+
+**所需信息**:
+- Description: 需求描述
+- Domain: 目标领域
+- Priority: critical | high | medium | low
+- Source: 来源 Feature (如有)
+
+#### 从需求池分析 (analyze)
+
+**触发**: "分析需求池"、"backlog analyze"
+
+```bash
+# 1. 读取 backlog，选择最高优先级项
+Read docs/requirements/backlog.md
+
+# 2. 提取需求描述
+# 3. 执行完整 sdf-analyze 流程 (Step 1-6)
+# 4. 分析完成后，移动到 Completed
+Edit docs/requirements/backlog.md
+```
+
+#### 需求池统计 (stats)
+
+**触发**: "需求池统计"、"backlog stats"
+
+```bash
+Read docs/requirements/backlog.md
+# 解析并统计
+```
+
+**输出**:
+```
+=== 需求池统计 ===
+
+总计: 8 项
+- 待分析: 3
+- 已完成: 5
+
+按优先级分布:
+- critical: 1
+- high: 2
+- medium: 0
+
+按 Domain 分布:
+- CoreEngine: 2
+- DocSystem: 1
+
+=== 阶段转换检查 ===
+
+可进入 Design:
+- feat-xxx: 所有依赖已就绪 ✅
+
+等待依赖:
+- feat-yyy: 等待 backlog-001, backlog-003
+```
+
+### 与需求分析的关系
+
+Backlog 管理是 R 阶段的辅助功能：
+
+```
+用户描述新需求
+    ↓
+sdf-analyze 执行分析
+    ↓
+发现新依赖 → 自动添加到 Backlog (Step 5)
+    ↓
+用户继续分析 Backlog 中的需求
+    ↓
+Backlog 清空 → 可进入 D 阶段
+```
+
 ## 参考资料
 
 - **Feature 模板**: [templates/feature.md](templates/feature.md)

@@ -29,8 +29,14 @@ last_updated: 2026-01-03
 ## 统计
 
 - **待分析**: 2
-- **分析中**: 0
+- **分析中**: 1
 - **已完成**: 4
+
+## 新增 Feature (直接创建)
+
+| Feature ID | 描述 | 创建日期 | 状态 |
+|------------|------|----------|------|
+| feat-task-management | 统一任务管理系统 (Backlog + Task) | 2026-01-04 | analyzing |
 
 ## 依赖关系说明
 
@@ -75,6 +81,12 @@ workflow-orchestration
 ### 当前门控状态
 
 ```
+feat-task-management:
+  ├── 依赖分析: ✅ 完成 (analyzed: true)
+  ├── 前置依赖: feat-doc-indexer ✅ (done)
+  ├── 需求池状态: ✅ 无相关待分析项
+  └── 可进入 Design: ✅ 可以
+
 feat-workflow-orchestration:
   ├── 依赖分析: ✅ 完成
   ├── 需求池状态: ✅ 已清空
