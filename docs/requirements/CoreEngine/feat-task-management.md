@@ -2,13 +2,13 @@
 id: feat-task-management
 type: feature
 domain: CoreEngine
-status: analyzing
+status: done
 priority: high
 created: 2026-01-04
 
 # ===== Semantic Fields (AI-First) =====
-summary: "持久化任务管理，支持任务依赖关系，为影响分析提供基础设施"
-tags: [task, dependency, persistence, infrastructure]
+summary: "持久化任务管理，支持任务依赖关系，统一管理所有待办项（包括待分析需求）"
+tags: [task, dependency, persistence, infrastructure, requirement-management]
 
 # ===== Feature Kind =====
 feature_kind: code
@@ -65,17 +65,21 @@ Claude CLI 的 TodoWrite 是会话级别的，会话结束后任务丢失。我�
 ```typescript
 // 任务类型 (可扩展)
 type TaskType =
-  | 'new_feature'      // 新增需求
-  | 'change_feature'   // 变更需求
-  | 'delete_feature'   // 删除需求
-  | 'design_change'    // 修改设计
-  | 'bug_fix'          // 修复 bug
-  | 'refactor'         // 重构
-  | 'test'             // 测试
-  | 'doc';             // 文档
+  | 'analyze_requirement' // 分析需求（替代 Backlog）
+  | 'new_feature'         // 新增需求
+  | 'change_feature'      // 变更需求
+  | 'delete_feature'      // 删除需求
+  | 'design_change'       // 修改设计
+  | 'bug_fix'             // 修复 bug
+  | 'refactor'            // 重构
+  | 'test'                // 测试
+  | 'doc';                // 文档
 
 // 任务状态
 type TaskStatus = 'pending' | 'in_progress' | 'done';
+
+// 任务来源
+type TaskSource = 'manual' | 'impact-analyzer' | 'discovery' | 'migration';
 
 // 任务结构
 interface Task {
@@ -88,8 +92,10 @@ interface Task {
   // 依赖关系
   dependsOn?: string[];
 
-  // 来源
-  generatedBy?: string;  // manual | impact-analyzer | migration
+  // 来源和优先级
+  generatedBy?: TaskSource;
+  priority?: 'critical' | 'high' | 'medium' | 'low';
+  source?: string;  // 来源 Feature/ADR ID
 
   // 时间
   created: string;
@@ -182,19 +188,32 @@ Output: Task[]
 ## 4. Acceptance Criteria
 
 ### AC-1: Persistence
-- [ ] 任务存储在 .solodevflow/tasks.json
-- [ ] 跨会话保持
+- [x] 创建任务后，`.solodevflow/tasks.json` 文件存在
+- [x] 文件内容包含正确的 Task 结构（id, type, title, status, created）
+- [x] 重新调用 `loadStore()` 能读取之前创建的任务
 
-### AC-2: CRUD
-- [ ] Create/Update/Delete/Query 操作正常
+### AC-2: CRUD Operations
+- [x] `createTask`: 返回包含 id、created 的 Task
+- [x] `updateTask`: 状态变更正确保存
+- [x] `updateTask`: 设为 done 时自动填充 completed 字段
+- [x] `deleteTask`: 任务从存储中移除
+- [x] `queryTasks`: 按 type/status 筛选正确
 
-### AC-3: Dependency
-- [ ] 支持 dependsOn 字段
-- [ ] Get Executable Tasks 正确过滤
+### AC-3: Dependency Management
+- [x] `getExecutableTasks`: 无依赖的 pending 任务返回
+- [x] `getExecutableTasks`: 依赖未完成的任务不返回
+- [x] `getExecutableTasks`: 依赖全部 done 的任务返回
+- [x] `deleteTask`: 被依赖的任务删除失败并返回错误
 
 ### AC-4: Batch Create
-- [ ] 支持批量创建
-- [ ] 批次内依赖引用正确解析
+- [x] 一次创建多个任务，全部成功
+- [x] tempId 正确解析为真实 ID
+- [x] 批次内 A→B 依赖关系正确建立
+
+### AC-5: Error Handling
+- [x] `createTask`: 依赖不存在时返回错误
+- [x] `updateTask`: 任务不存在时返回错误
+- [x] `deleteTask`: 任务不存在时返回错误
 
 ## 5. Technical Constraints
 
@@ -213,5 +232,5 @@ backlog-005 → { id: "task-001", type: "new_feature", ... }
 
 *Feature: task-management*
 *Domain: CoreEngine*
-*Status: analyzing*
+*Status: implementing*
 *Kind: code*

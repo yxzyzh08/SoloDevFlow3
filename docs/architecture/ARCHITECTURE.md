@@ -1,7 +1,7 @@
 ---
 type: architecture
 status: living
-last_updated: 2026-01-03
+last_updated: 2026-01-05
 version: 0.2.0
 ---
 
@@ -43,6 +43,7 @@ version: 0.2.0
 |-----------|--------|----------|--------|-------------|
 | doc-indexer | DocSystem | `src/doc-indexer/` | done | Feature 文档扫描、解析、验证 |
 | dependency-graph | DocSystem | `src/dependency-graph/` | done | 依赖图构建、拓扑排序、门控检查 |
+| task-manager | CoreEngine | `src/task-manager/` | done | 持久化任务管理，支持依赖关系 |
 | CLI | Core | `src/index.ts` | done | 命令行入口 |
 
 #### Specification Components (设计内嵌在需求文档)
@@ -52,7 +53,6 @@ version: 0.2.0
 | sdf-analyze | CoreEngine | `.claude/skills/sdf-analyze/` | done | R 阶段需求分析 Skill |
 | sdf-design | CoreEngine | `.claude/skills/sdf-design/` | done | D 阶段技术设计 Skill |
 | sdf-test | CoreEngine | `.claude/skills/sdf-test/` | done | T 阶段测试验收 Skill |
-| sdf-ask | CoreEngine | `.claude/skills/sdf-ask/` | done | 产品咨询 Skill |
 | workflow-orchestration | CoreEngine | `.claude/steering/workflow.md` | done | R-D-C-T 工作流规范 |
 
 ### 2.2 Component Classification
@@ -60,7 +60,7 @@ version: 0.2.0
 | Feature Kind | 设计文档策略 | 示例 |
 |--------------|-------------|------|
 | `code` | 需要独立 des-xxx.md | doc-indexer, dependency-graph |
-| `specification` | 设计内嵌在需求文档 Specification 部分 | sdf-analyze, sdf-design, sdf-test, sdf-ask |
+| `specification` | 设计内嵌在需求文档 Specification 部分 | sdf-analyze, sdf-design, sdf-test |
 
 > 详见 `.claude/steering/workflow.md` Section 8: Feature Kind & Design Documents
 
@@ -191,8 +191,10 @@ interface GateCheckResult {
 | 2026-01-03 | sdf-design | Skill 实现完成 | D 阶段全流程可用 | - |
 | 2026-01-03 | sdf-test | Skill 实现完成 | T 阶段全流程可用 | - |
 | 2026-01-03 | workflow-orchestration | 全部 AC 完成，status: done | R-D-C-T 工作流框架完成 | - |
-| 2026-01-03 | sdf-ask | 新增产品咨询 Skill | 提供分析洞察和建议，与 /status 差异化 | - |
 | 2026-01-03 | architecture | 新增 Feature Kind 分类 | 规范类 Feature 设计内嵌，减少重复文档 | - |
+| 2026-01-05 | sdf-ask | 删除 | 与 Claude 原生能力重叠，遵循 YAGNI 原则 | - |
+| 2026-01-05 | task-manager | 设计完成 | 持久化任务管理模块 | - |
+| 2026-01-05 | task-manager | 实现完成 | store.ts + operations.ts + index.ts | - |
 
 ## 7. Architecture Checklist
 
@@ -226,5 +228,5 @@ interface GateCheckResult {
 
 ---
 
-*Last Updated: 2026-01-03*
+*Last Updated: 2026-01-05*
 *Maintainer: Human + AI Collaboration*

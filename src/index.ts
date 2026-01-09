@@ -15,7 +15,8 @@ import {
   checkRToD,
   formatGateCheckResult
 } from './dependency-graph/index.js';
-import type { BacklogItem, IndexResult, DependencyGraph } from './types.js';
+import type { Task, IndexResult, DependencyGraph } from './types.js';
+import { queryTasks } from './task-manager/index.js';
 
 // 获取项目根目录
 function getBasePath(): string {
@@ -23,10 +24,10 @@ function getBasePath(): string {
   return path.resolve(process.cwd(), '..');
 }
 
-// 模拟读取 backlog（实际实现需要解析 backlog.md）
-async function getBacklog(): Promise<BacklogItem[]> {
-  // TODO: 实现从 backlog.md 解析
-  return [];
+// 获取待分析需求任务
+async function getPendingRequirements(): Promise<Task[]> {
+  const basePath = getBasePath();
+  return queryTasks(basePath, { type: 'analyze_requirement', status: 'pending' });
 }
 
 // ============ Export Functions ============
@@ -182,11 +183,11 @@ async function nextCommand(
   const result = await indexFeatures(basePath);
   const graph = buildGraph(result.features);
 
-  // 获取 backlog
-  const backlog = await getBacklog();
+  // 获取待分析需求
+  const pendingRequirements = await getPendingRequirements();
 
   // 执行门控检查
-  const gateResult = checkRToD(featureId, graph, backlog);
+  const gateResult = checkRToD(featureId, graph, pendingRequirements);
   console.log(formatGateCheckResult(gateResult));
 
   // 如果可以推进且不是 --force

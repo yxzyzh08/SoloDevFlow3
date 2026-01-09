@@ -1,8 +1,8 @@
 ---
 type: workflow-specification
 status: active
-version: 1.0.0
-last_updated: 2026-01-02
+version: 1.0.1
+last_updated: 2026-01-05
 ---
 
 # SoloDevFlow Workflow Specification
@@ -189,7 +189,7 @@ designing → implementing → testing → done
 | frontmatter-complete | Read + 解析 | id, type, status, priority, dependencies 完整 |
 | ac-defined | Read Feature 文档 | AC 部分非空 (至少 1 条) |
 | deps-analyzed | 检查 `analyzed` 字段 | `analyzed: true` |
-| backlog-clear | Read backlog.md | 需求池为空或仅剩无关项 |
+| pending-requirements-clear | queryTasks({ type: 'analyze_requirement', status: 'pending' }) | 无相关待分析需求 |
 | user-confirmed | 询问用户 | 用户确认进入 D 阶段 |
 
 **检查命令**: `/next <feature-id>`
@@ -513,7 +513,6 @@ Step 4: 验证一致性
 2. Step 2: 修改文档
    - workflow.md: 删除 Command Reference，添加 Skill Reference
    - workflow.md: 说明 "不再使用独立 Commands"
-   - sdf-ask/SKILL.md: 添加 status 功能
    - sdf-test/SKILL.md: 添加 AC 查询功能
    - sdf-analyze/SKILL.md: 添加 backlog 管理功能
 
@@ -526,43 +525,53 @@ Step 4: 验证一致性
    - 确认 workflow.md 引用正确
 ```
 
-## 7. Backlog Mechanism
+## 7. Task-based Requirement Management
 
-### 7.1 Backlog File
+### 7.1 统一任务管理
 
-**Location**: `docs/requirements/backlog.md`
+所有待办项（包括待分析的需求）统一通过 Task Manager 管理。
 
-**Structure**:
-```markdown
----
-type: backlog
-last_updated: YYYY-MM-DD
----
+**存储位置**: `.solodevflow/tasks.json`
 
-# Backlog
+**需求分析任务类型**: `analyze_requirement`
 
-## Pending (待分析)
+### 7.2 需求发现流程
 
-| ID | Description | Domain | Priority | Added |
-|----|-------------|--------|----------|-------|
-| backlog-001 | xxx | CoreEngine | High | 2026-01-02 |
-
-## Completed (已完成)
-
-| ID | Feature | Completed |
-|----|---------|-----------|
-| backlog-001 | feat-xxx | 2026-01-02 |
+```
+发现新需求（依赖分析/用户提出）
+    ↓
+createTask({
+  type: 'analyze_requirement',
+  title: '分析需求：xxx',
+  priority: 'medium',
+  source: '<来源 Feature ID>',
+  generatedBy: 'discovery'
+})
+    ↓
+R 阶段分析
+    ↓
+创建 Feature 文档 + updateTask({ status: 'done' })
 ```
 
-### 7.2 Backlog Operations
+### 7.3 任务查询
 
-Backlog 操作由 sdf-analyze Skill 提供，详见 `.claude/skills/sdf-analyze/SKILL.md`。
+```typescript
+// 查看待分析需求
+queryTasks({ type: 'analyze_requirement', status: 'pending' })
 
-**触发词示例**:
-- "查看需求池" → list
-- "添加到需求池" → add
-- "分析需求池中的项目" → analyze
-- "需求池统计" → stats
+// 查看可执行任务（依赖已满足）
+getExecutableTasks()
+
+// 按优先级筛选
+queryTasks({ status: 'pending' })  // 然后按 priority 排序
+```
+
+### 7.4 与 R→D 门控的关系
+
+R→D 门控检查 `pending-requirements-clear` 条件：
+- 查询 `type: 'analyze_requirement', status: 'pending'` 的任务
+- 如果存在相关待分析需求，阻止进入 D 阶段
+- 确保依赖链完整分析后再进入设计
 
 ## 8. Skill Reference
 
@@ -572,12 +581,13 @@ Backlog 操作由 sdf-analyze Skill 提供，详见 `.claude/skills/sdf-analyze/
 
 **Location**: `.claude/skills/sdf-analyze/`
 
-**触发词**: "添加"、"实现"、"新功能"、"需求分析"、"backlog"
+**触发词**: "添加"、"实现"、"新功能"、"需求分析"、"待办"、"修改了"、"变更"、"分析影响"
 
 **能力**:
 - 需求分析和 Feature 文档创建
 - 依赖分析
-- Backlog 管理 (list/add/analyze/stats)
+- 任务管理 (通过 task-manager API)
+- 变更影响分析 (计划中)
 
 ### 8.2 sdf-design (D 阶段)
 
@@ -602,18 +612,7 @@ Backlog 操作由 sdf-analyze Skill 提供，详见 `.claude/skills/sdf-analyze/
 - 测试报告生成
 - AC 快速查询
 
-### 8.4 sdf-ask (咨询与状态)
-
-**Location**: `.claude/skills/sdf-ask/`
-
-**触发词**: "进度"、"状态"、"有哪些功能"、"架构"、"Feature 索引"
-
-**能力**:
-- 产品咨询 (分析 + 建议)
-- Feature 索引 (结构化查询)
-- 验证检查
-
-### 8.5 Phase Transition (阶段推进)
+### 8.4 Phase Transition (阶段推进)
 
 **Location**: 本文档 Section 5
 
@@ -639,8 +638,8 @@ Backlog 操作由 sdf-analyze Skill 提供，详见 `.claude/skills/sdf-analyze/
 
 | Kind | 定义 | 产出 | 示例 |
 |------|------|------|------|
-| `code` | 需要编写代码的功能 | `src/` 代码 | doc-indexer, dependency-graph |
-| `specification` | 定义规范或 Skill | SKILL.md 文件 | sdf-analyze, sdf-design, sdf-test, sdf-ask |
+| `code` | 需要编写代码的功能 | `src/` 代码 | doc-indexer, dependency-graph, task-manager |
+| `specification` | 定义规范或 Skill | SKILL.md 文件 | sdf-analyze, sdf-design, sdf-test |
 
 ### 10.2 设计文档策略
 
@@ -710,10 +709,9 @@ R → D → C → T → Done
 | R | `.claude/skills/sdf-analyze/` |
 | D | `.claude/skills/sdf-design/` |
 | T | `.claude/skills/sdf-test/` |
-| Query | `.claude/skills/sdf-ask/` |
 
 ---
 
-*Workflow Specification v1.0.0*
-*Last Updated: 2026-01-02*
+*Workflow Specification v1.0.1*
+*Last Updated: 2026-01-05*
 *Maintainer: Human + AI Collaboration*

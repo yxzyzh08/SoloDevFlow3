@@ -7,7 +7,7 @@ import type {
   DependencyGraph,
   GateCheckResult,
   GateCondition,
-  BacklogItem,
+  Task,
   PhaseTransition
 } from '../types.js';
 import { detectCycles } from './algorithms.js';
@@ -32,13 +32,13 @@ const PHASE_TARGETS: Record<PhaseTransition, string> = {
  * R→D 阶段门控检查
  * @param featureId Feature ID
  * @param graph 依赖图
- * @param backlog 需求池
+ * @param pendingRequirements 待分析需求任务 (type: 'analyze_requirement', status: 'pending')
  * @returns 门控检查结果
  */
 export function checkRToD(
   featureId: string,
   graph: DependencyGraph,
-  backlog: BacklogItem[]
+  pendingRequirements: Task[]
 ): GateCheckResult {
   const conditions: GateCondition[] = [];
   const blockers: string[] = [];
@@ -73,21 +73,21 @@ export function checkRToD(
     blockers.push('依赖分析未完成');
   }
 
-  // Condition 2: 需求池状态
-  const relatedBacklog = backlog.filter(
-    b => b.source === featureId && b.status !== 'completed'
+  // Condition 2: 待分析需求状态
+  const relatedRequirements = pendingRequirements.filter(
+    t => t.source === featureId && t.status === 'pending'
   );
   const cond2: GateCondition = {
-    id: 'backlog-empty',
-    name: '需求池已清空',
-    satisfied: relatedBacklog.length === 0,
-    details: relatedBacklog.length === 0
-      ? '无相关待分析项'
-      : `${relatedBacklog.length} 个待分析: ${relatedBacklog.map(b => b.id).join(', ')}`
+    id: 'requirements-clear',
+    name: '待分析需求已清空',
+    satisfied: relatedRequirements.length === 0,
+    details: relatedRequirements.length === 0
+      ? '无相关待分析需求'
+      : `${relatedRequirements.length} 个待分析: ${relatedRequirements.map(t => t.id).join(', ')}`
   };
   conditions.push(cond2);
   if (!cond2.satisfied) {
-    blockers.push(`需求池有 ${relatedBacklog.length} 个待分析`);
+    blockers.push(`有 ${relatedRequirements.length} 个待分析需求`);
   }
 
   // Condition 3: 前置依赖就绪

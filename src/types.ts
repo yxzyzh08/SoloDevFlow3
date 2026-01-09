@@ -132,10 +132,43 @@ export interface GateCheckResult {
   blockers: string[];
 }
 
-// ============ Backlog ============
-export interface BacklogItem {
+// ============ Task Management ============
+export type TaskType =
+  | 'analyze_requirement'  // 分析需求（替代 Backlog）
+  | 'new_feature'
+  | 'change_feature'
+  | 'delete_feature'
+  | 'design_change'
+  | 'bug_fix'
+  | 'refactor'
+  | 'test'
+  | 'doc';
+
+export type TaskStatus = 'pending' | 'in_progress' | 'done';
+
+export type TaskSource = 'manual' | 'impact-analyzer' | 'discovery' | 'migration';
+
+export interface Task {
   id: string;
-  source: string;
-  description: string;
-  status: 'pending' | 'analyzing' | 'completed';
+  type: TaskType;
+  title: string;
+  description?: string;
+  status: TaskStatus;
+  dependsOn?: string[];
+  generatedBy?: TaskSource;
+  priority?: 'critical' | 'high' | 'medium' | 'low';  // 新增优先级
+  source?: string;  // 来源 Feature/ADR ID
+  created: string;
+  completed?: string;
+}
+
+export interface TaskStore {
+  version: string;
+  tasks: Task[];
+}
+
+export interface TaskResult<T = Task> {
+  success: boolean;
+  error?: string;
+  data?: T;
 }
