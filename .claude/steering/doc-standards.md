@@ -1,7 +1,7 @@
 ---
 type: documentation-standard
 status: active
-version: 1.0.0
+version: 1.0.1
 last_updated: 2026-01-11
 ---
 
@@ -184,31 +184,17 @@ function example(): void {
 - ID: `kebab-case`
 - 变量/字段: `camelCase` 或 `snake_case` (保持项目一致)
 
-## 7. Templates Reference
+## 7. Quick Validation
 
-| 文档类型 | 模板位置 |
-|----------|----------|
-| Feature | `.claude/skills/sdf-analyze/templates/` |
-| Design | `.claude/skills/sdf-design/templates/` |
-| Change Log | `.claude/skills/sdf-code/templates/` |
-| Test Report | `.claude/skills/sdf-test/templates/` |
+生成文档后核心检查：
 
-## 8. Validation Checklist
+| 检查项 | 标准 |
+|--------|------|
+| Frontmatter | id, type, status, summary 字段完整 |
+| 结构 | 无长段落 (>5行)、无 ASCII 图、嵌套 ≤2 层 |
+| 格式 | 表格有分隔线、代码块指定语言 |
 
-生成文档后检查：
-
-```
-- [ ] YAML Frontmatter 完整 (id, type, status)
-- [ ] 语义字段已填写 (summary, tags)
-- [ ] 无长段落 (每段 < 5 行)
-- [ ] 无 ASCII 图 (使用表格替代)
-- [ ] 无深层嵌套 (最多 2 层)
-- [ ] 表格有分隔线
-- [ ] 代码块指定语言
-- [ ] 无隐式引用
-```
-
-## 9. Bilingual Convention
+## 8. Bilingual Convention
 
 项目全局遵循以下双语约定：
 
@@ -223,5 +209,5 @@ function example(): void {
 
 ---
 
-*Documentation Standards v1.0.0*
+*Documentation Standards v1.0.1*
 *Last Updated: 2026-01-11*
