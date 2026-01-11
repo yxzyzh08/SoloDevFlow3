@@ -21,6 +21,7 @@ allowed-tools: Read, Write, Edit, Grep, Glob, Bash
 - **NOT Discovery**: 不是发现新 Bug 的阶段
 - **Lightweight**: 精简流程，轻量化报告
 - **AC-Centric**: 以验收标准为核心判断依据
+- **AI-First Format**: 生成报告遵循 `doc-standards.md` 规范
 
 ## 执行工作流 (4 步精简)
 
@@ -276,6 +277,7 @@ Status: <current-status>
 
 ## 参考资料
 
+- **文档编写规范**: `.claude/steering/doc-standards.md` (生成报告前必读)
 - **验证报告模板**: [templates/test-report.md](templates/test-report.md)
 - **AC 验证指南**: [references/ac-verification.md](references/ac-verification.md)
 - **门控条件参考**: [references/gate-conditions.md](references/gate-conditions.md)

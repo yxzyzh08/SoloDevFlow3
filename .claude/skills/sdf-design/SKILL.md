@@ -19,6 +19,7 @@ allowed-tools: Read, Write, Edit, Grep, Glob, Bash
 - **Reuse Over Create**: 优先复用现有组件
 - **Consistency Check**: 确保接口风格一致
 - **ADR When Needed**: 重大决策需要记录
+- **AI-First Format**: 生成文档遵循 `doc-standards.md` 规范
 
 ## 执行工作流
 
@@ -195,5 +196,6 @@ Write docs/design/<domain>/des-<name>.md
 
 ## 参考资料
 
+- **文档编写规范**: `.claude/steering/doc-standards.md` (生成文档前必读)
 - **设计模板**: [templates/design.md](templates/design.md)
 - **设计模式参考**: [references/design-patterns.md](references/design-patterns.md)

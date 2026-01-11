@@ -1,8 +1,8 @@
 ---
 type: workflow-specification
 status: active
-version: 1.0.1
-last_updated: 2026-01-05
+version: 1.2.0
+last_updated: 2026-01-11
 ---
 
 # SoloDevFlow Workflow Specification
@@ -26,61 +26,62 @@ Commit             →    T (Testing)          验证 + 提交
 
 ### 1.2 Core Principles
 
+核心原则详见 `CLAUDE.md`。工作流特定原则：
+
 | Principle | Description |
 |-----------|-------------|
-| **Document is Truth** | 工作流状态存在文档中，而非 AI 记忆 |
-| **Document First** | 修改架构/规范时，先改文档再执行 |
-| **Dependency First** | 先分析依赖，再确定范围 |
-| **Planning First** | R/D 阶段使用 extended thinking |
+| **Planning First** | 复杂任务使用 extended thinking |
 | **Gate Check** | 阶段转换需满足门控条件 |
 | **AC Driven** | 验收标准是唯一判定依据 |
 
-### 1.3 Workflow Diagram
+### 1.3 State Transitions
 
+| From | To | Trigger | Condition |
+|------|----|---------|-----------|
+| `proposed` | `analyzing` | 开始分析 | - |
+| `analyzing` | `analyzed` | 分析完成 | 依赖已识别 |
+| `analyzing` | `analyzing` | 发现新依赖 | 创建 Task 后继续 |
+| `analyzed` | `ready-for-design` | 检查通过 | 无待分析任务 |
+| `analyzed` | `waiting-deps` | 检查未通过 | 有前置依赖未完成 |
+| `waiting-deps` | `ready-for-design` | 依赖完成 | 前置依赖 status=done |
+| `ready-for-design` | `designing` | R→D 门控 | 用户确认 |
+| `designing` | `implementing` | D→C 门控 | 设计已批准 |
+| `implementing` | `testing` | C→T 门控 | 代码完成 |
+| `testing` | `done` | T→Done 门控 | AC 100% 通过 |
+
+**简化流程**:
 ```
-                          ┌─────────────┐
-                          │   backlog   │ ← 需求池中待分析
-                          └──────┬──────┘
-                                 │
-                                 ▼
-┌─────────┐    ┌─────────────┐    ┌─────────────┐
-│proposed │───▶│  analyzing  │───▶│  analyzed   │
-└─────────┘    │ (深挖依赖)  │    └──────┬──────┘
-               └─────────────┘           │
-                      │                  │
-                      ▼                  │
-               ┌─────────────┐           │
-               │  New Deps   │──────────▶│
-               │  → Backlog  │           │
-               └─────────────┘           │
-                                         │
-                    ┌────────────────────┤
-                    │ Backlog Empty?     │
-                    ▼                    ▼
-            ┌───────────────┐    ┌──────────────────┐
-            │ ready-for-    │    │ waiting-deps     │
-            │ design        │    │ (等待依赖完成)    │
-            └───────┬───────┘    └──────────────────┘
-                    │
-                    ▼
-        ┌─────────────────────────────────────────────┐
-        │    D (Design) → C (Coding) → T (Testing)    │
-        └─────────────────────────────────────────────┘
-                    │
-                    ▼
-               ┌──────────┐
-               │   done   │
-               └──────────┘
+R: proposed → analyzing → analyzed → ready-for-design
+D: designing
+C: implementing
+T: testing → done
 ```
 
-## 2. State Machine
+## 2. Adaptive Workflows (简化路径)
 
-### 2.1 Status Definitions
+不同任务类型可选择不同路径，避免过度流程化：
+
+| 任务类型 | 路径 | 说明 |
+|----------|------|------|
+| **新功能** | R → D → C → T | 完整流程 |
+| **Bug 修复 (小)** | R → C → T | 跳过 D，直接修复 |
+| **Bug 修复 (大)** | R → D → C → T | 需要设计变更 |
+| **文档修改** | R → T | 无需编码 |
+| **配置调整** | 直接执行 | 无需 Feature 文档 |
+| **规范变更** | Section 7 流程 | Document First |
+
+**判断标准**:
+- 影响范围 > 3 个文件 → 完整流程
+- 需要新增模块/接口 → 需要 D 阶段
+- 仅修改现有逻辑 → 可跳过 D 阶段
+
+## 3. State Machine
+
+### 3.1 Status Definitions
 
 | Status | Phase | Meaning |
 |--------|-------|---------|
-| `backlog` | - | 需求池中，待分析 |
-| `proposed` | R | 需求已提出 |
+| `proposed` | R | 需求已提出 (新发现的依赖通过 Task Manager 管理) |
 | `analyzing` | R | 深度依赖分析中 |
 | `analyzed` | R | 分析完成，检查依赖 |
 | `waiting-deps` | R | 等待依赖完成 |
@@ -91,7 +92,7 @@ Commit             →    T (Testing)          验证 + 提交
 | `done` | - | 已完成 |
 | `blocked` | - | 阻塞 |
 
-### 2.2 Valid Transitions
+### 3.2 Valid Transitions
 
 ```
 proposed → analyzing → analyzed → ready-for-design → designing
@@ -101,28 +102,28 @@ proposed → analyzing → analyzed → ready-for-design → designing
 designing → implementing → testing → done
 ```
 
-## 3. Phase Specifications
+## 4. Phase Specifications
 
-### 3.1 Phase R: Requirements
+### 4.1 Phase R: Requirements
 
 | Item | Content |
 |------|---------|
 | **Goal** | 将模糊需求转化为结构化文档，深挖完整依赖链 |
 | **Trigger** | 用户描述新功能/Bug/变更 |
-| **Input** | 用户自然语言 + 现有上下文 + 需求池状态 |
-| **Output** | Feature 文档 + Backlog 更新 |
+| **Input** | 用户自然语言 + 现有上下文 + Task Manager 状态 |
+| **Output** | Feature 文档 + Task Manager 更新 |
 | **Skill** | `sdf-analyze` |
-| **Thinking** | `think hard` (深度依赖分析) |
+| **Thinking** | 标准模式，复杂依赖 → extended |
 
 **Skill Location**: `.claude/skills/sdf-analyze/`
 
 **Key Activities**:
 1. 创建 Feature 文档 (`docs/requirements/<domain>/feat-<name>.md`)
 2. 分析依赖 (功能/数据/基础设施/外部)
-3. 新发现的依赖加入 Backlog
+3. 新发现的依赖创建 Task (`type: analyze_requirement`)
 4. 更新依赖状态 (`analyzed: true`)
 
-### 3.2 Phase D: Design
+### 4.2 Phase D: Design
 
 | Item | Content |
 |------|---------|
@@ -131,7 +132,7 @@ designing → implementing → testing → done
 | **Input** | Feature 需求文档 + 架构文档 + 代码库结构 |
 | **Output** | 设计文档 (`docs/design/<domain>/des-<name>.md`) |
 | **Skill** | `sdf-design` |
-| **Thinking** | `ultrathink` (深度规划) |
+| **Thinking** | extended thinking (深度规划) |
 
 **Skill Location**: `.claude/skills/sdf-design/`
 
@@ -142,7 +143,7 @@ designing → implementing → testing → done
 4. 生成设计文档
 5. 更新架构文档 (如有新组件)
 
-### 3.3 Phase C: Coding
+### 4.3 Phase C: Coding
 
 | Item | Content |
 |------|---------|
@@ -150,14 +151,19 @@ designing → implementing → testing → done
 | **Trigger** | D→C 门控通过 + 用户确认 |
 | **Input** | 设计文档 + 需求文档 |
 | **Output** | `src/` 代码变更 或 `.claude/skills/` 配置 |
-| **Tool** | Edit, Write, Bash (Claude 原生工具) |
+| **Skill** | `sdf-code` |
+| **Thinking** | 标准模式，复杂实现 → extended |
+
+**Skill Location**: `.claude/skills/sdf-code/`
 
 **Key Activities**:
-1. 按设计文档实现
-2. 遵循架构约束 (TypeScript, 类型定义等)
-3. 更新状态为 `implementing`
+1. D→C 门控检查
+2. 加载设计文档和需求 AC
+3. 生成实现计划并确认
+4. 增量实现 (Loop: 实现 → 验证 → 下一模块)
+5. 完成验证并准备测试
 
-### 3.4 Phase T: Testing
+### 4.4 Phase T: Testing
 
 | Item | Content |
 |------|---------|
@@ -177,9 +183,9 @@ designing → implementing → testing → done
 5. T→Done 门控检查
 6. 用户确认后更新状态为 `done`
 
-## 4. Gate Conditions
+## 5. Gate Conditions
 
-### 4.1 R→D Gate
+### 5.1 R→D Gate
 
 进入 Design 阶段必须满足：
 
@@ -194,7 +200,7 @@ designing → implementing → testing → done
 
 **检查命令**: `/next <feature-id>`
 
-### 4.2 D→C Gate
+### 5.2 D→C Gate
 
 进入 Coding 阶段必须满足：
 
@@ -205,7 +211,7 @@ designing → implementing → testing → done
 | architecture-aligned | 检查设计文档 | Checklist 已完成 |
 | adr-created | 检查 ADR | 如需要，ADR 已创建 |
 
-### 4.3 C→T Gate
+### 5.3 C→T Gate
 
 进入 Testing 阶段必须满足：
 
@@ -215,7 +221,7 @@ designing → implementing → testing → done
 | ac-defined | Read Feature 文档 | AC 部分非空 |
 | design-followed | Read 设计文档比对 | 实现与设计一致 |
 
-### 4.4 T→Done Gate
+### 5.4 T→Done Gate
 
 完成 Feature 必须满足：
 
@@ -225,11 +231,11 @@ designing → implementing → testing → done
 | no-blockers | 检查严重问题 | 无阻塞项 |
 | user-approved | 询问用户 | 用户确认 APPROVE |
 
-## 5. Phase Transition (阶段推进)
+## 6. Phase Transition (阶段推进)
 
 阶段推进是工作流的核心。当用户说"进入下一阶段"、"推进"、"next"时触发。
 
-### 5.1 Transition Flow
+### 6.1 Transition Flow
 
 ```
 用户: "推进 feat-xxx 到下一阶段"
@@ -247,7 +253,7 @@ Step 5: 用户确认
 Step 6: 更新状态 + 触发下一阶段动作
 ```
 
-### 5.2 State Transition Map
+### 6.2 State Transition Map
 
 ```
 R Phase:
@@ -268,7 +274,7 @@ T → Done:
   testing → done
 ```
 
-### 5.3 Transition Execution
+### 6.3 Transition Execution
 
 #### Step 1-2: Locate & Read
 
@@ -306,7 +312,7 @@ Target: designing
 
 Gate Check (R → D):
   [PASS] 依赖分析完成 (analyzed: true)
-  [PASS] 需求池已清空 (无相关待分析项)
+  [PASS] 待分析任务已清空 (无 pending analyze_requirement)
   [PASS] 前置依赖就绪 (无前置依赖)
   [PASS] 无循环依赖
 
@@ -319,11 +325,11 @@ Result: CAN PROCEED / CANNOT PROCEED
 Result: CANNOT PROCEED
 
 Blockers:
-  1. 需求池有 2 个待分析项
+  1. Task Manager 有 2 个待分析任务
   2. 等待前置依赖完成: feat-xxx, feat-yyy
 
 Suggestions:
-  - 继续分析需求池中的项目
+  - 继续处理 Task Manager 中的待分析任务
   - 或使用 --force 强制推进 (不推荐)
 ```
 
@@ -353,51 +359,16 @@ Edit docs/requirements/<domain>/feat-<name>.md
 | testing | 提示使用 sdf-test Skill 验证 AC |
 | done | 更新统计，汇报完成 |
 
-### 5.4 Cycle Detection Algorithm
+### 6.4 Dependency Checks
 
-检测循环依赖使用 DFS + Coloring：
+门控检查包含两个核心验证：
 
-```
-WHITE = 未访问
-GRAY = 访问中（在当前路径上）
-BLACK = 已完成
+| 检查 | 说明 | 实现位置 |
+|------|------|----------|
+| 循环依赖检测 | DFS + 着色算法 | `src/dependency-graph/index.ts:detectCycles()` |
+| 依赖就绪检查 | 验证前置依赖状态 | `src/dependency-graph/index.ts:checkRToD()` |
 
-function detectCycle(featureId):
-  if color[featureId] == GRAY:
-    return true  // 发现环
-  if color[featureId] == BLACK:
-    return false
-
-  color[featureId] = GRAY
-  for each dep in requires[featureId]:
-    if detectCycle(dep):
-      return true
-  color[featureId] = BLACK
-  return false
-```
-
-### 5.5 Dependency Ready Check
-
-```
-function checkDepsReady(featureId, allFeatures):
-  feature = findFeature(featureId)
-  requires = feature.dependencies?.requires || []
-  notReady = []
-
-  for each depId in requires:
-    dep = findFeature(depId)
-    if !dep:
-      notReady.push(depId + " (不存在)")
-    else if dep.status in ['backlog', 'proposed', 'analyzing']:
-      notReady.push(depId + " (" + dep.status + ")")
-
-  return {
-    ready: notReady.length == 0,
-    notReady: notReady
-  }
-```
-
-### 5.6 Force Transition
+### 6.5 Force Transition
 
 不推荐，但当用户明确要求时可以强制推进：
 
@@ -408,11 +379,11 @@ function checkDepsReady(featureId, allFeatures):
 确认强制推进？(需明确确认)
 ```
 
-## 6. Specification Change Process
+## 7. Specification Change Process
 
 当需要修改架构或规范（而非开发新 Feature）时，遵循此流程。
 
-### 6.1 适用场景
+### 7.1 适用场景
 
 | 场景 | 示例 | 适用流程 |
 |------|------|----------|
@@ -424,7 +395,7 @@ function checkDepsReady(featureId, allFeatures):
 - 如果主要产出是**新代码/新功能** → R-D-C-T
 - 如果主要产出是**修改现有规范/架构** → Specification Change Process
 
-### 6.2 核心原则：Document First
+### 7.2 核心原则：Document First
 
 ```
 ❌ 错误：先执行变更 → 后更新文档
@@ -436,7 +407,7 @@ function checkDepsReady(featureId, allFeatures):
 2. 文档先行确保变更经过思考
 3. 便于 Review 和回滚
 
-### 6.3 变更流程
+### 7.3 变更流程
 
 ```
 Specification Change Process:
@@ -491,7 +462,7 @@ Step 4: 验证一致性
 - [ ] 相关引用已更新
 ```
 
-### 6.4 与 ADR 的关系
+### 7.4 与 ADR 的关系
 
 | 变更规模 | 是否需要 ADR |
 |----------|-------------|
@@ -503,7 +474,7 @@ Step 4: 验证一致性
 - 引入新模式/废弃旧模式
 - 不可逆的结构变更
 
-### 6.5 示例：Commands → Skills 合并
+### 7.5 示例：Commands → Skills 合并
 
 **正确流程**：
 
@@ -514,7 +485,7 @@ Step 4: 验证一致性
    - workflow.md: 删除 Command Reference，添加 Skill Reference
    - workflow.md: 说明 "不再使用独立 Commands"
    - sdf-test/SKILL.md: 添加 AC 查询功能
-   - sdf-analyze/SKILL.md: 添加 backlog 管理功能
+   - sdf-analyze/SKILL.md: 添加 Task Manager 集成
 
 3. Step 3: 执行变更
    - 删除 .claude/commands/ 目录
@@ -525,9 +496,9 @@ Step 4: 验证一致性
    - 确认 workflow.md 引用正确
 ```
 
-## 7. Task-based Requirement Management
+## 8. Task-based Requirement Management
 
-### 7.1 统一任务管理
+### 8.1 统一任务管理
 
 所有待办项（包括待分析的需求）统一通过 Task Manager 管理。
 
@@ -535,7 +506,7 @@ Step 4: 验证一致性
 
 **需求分析任务类型**: `analyze_requirement`
 
-### 7.2 需求发现流程
+### 8.2 需求发现流程
 
 ```
 发现新需求（依赖分析/用户提出）
@@ -553,7 +524,7 @@ R 阶段分析
 创建 Feature 文档 + updateTask({ status: 'done' })
 ```
 
-### 7.3 任务查询
+### 8.3 任务查询
 
 ```typescript
 // 查看待分析需求
@@ -566,18 +537,18 @@ getExecutableTasks()
 queryTasks({ status: 'pending' })  // 然后按 priority 排序
 ```
 
-### 7.4 与 R→D 门控的关系
+### 8.4 与 R→D 门控的关系
 
 R→D 门控检查 `pending-requirements-clear` 条件：
 - 查询 `type: 'analyze_requirement', status: 'pending'` 的任务
 - 如果存在相关待分析需求，阻止进入 D 阶段
 - 确保依赖链完整分析后再进入设计
 
-## 8. Skill Reference
+## 9. Skill Reference
 
 所有工作流操作通过 Skills 触发，不再使用独立 Commands。
 
-### 8.1 sdf-analyze (R 阶段)
+### 9.1 sdf-analyze (R 阶段)
 
 **Location**: `.claude/skills/sdf-analyze/`
 
@@ -589,7 +560,7 @@ R→D 门控检查 `pending-requirements-clear` 条件：
 - 任务管理 (通过 task-manager API)
 - 变更影响分析 (计划中)
 
-### 8.2 sdf-design (D 阶段)
+### 9.2 sdf-design (D 阶段)
 
 **Location**: `.claude/skills/sdf-design/`
 
@@ -600,7 +571,20 @@ R→D 门控检查 `pending-requirements-clear` 条件：
 - 生成设计文档
 - 架构一致性检查
 
-### 8.3 sdf-test (T 阶段)
+### 9.3 sdf-code (C 阶段)
+
+**Location**: `.claude/skills/sdf-code/`
+
+**触发词**: "编码"、"实现"、"开始写代码"、"进入开发"、"进入 C 阶段"
+
+**能力**:
+- D→C 门控检查
+- 实现计划生成
+- 增量实现与验证
+- 变更追踪
+- C→T 门控准备
+
+### 9.4 sdf-test (T 阶段)
 
 **Location**: `.claude/skills/sdf-test/`
 
@@ -612,9 +596,9 @@ R→D 门控检查 `pending-requirements-clear` 条件：
 - 测试报告生成
 - AC 快速查询
 
-### 8.4 Phase Transition (阶段推进)
+### 9.5 Phase Transition (阶段推进)
 
-**Location**: 本文档 Section 5
+**Location**: 本文档 Section 6
 
 **触发词**: "推进"、"下一阶段"、"进入 D/C/T 阶段"
 
@@ -623,25 +607,27 @@ R→D 门控检查 `pending-requirements-clear` 条件：
 - 状态更新
 - 触发对应阶段 Skill
 
-## 9. Thinking Level Guide
+## 10. Thinking Level Guide
 
-| Phase | Default Thinking | When to Upgrade |
-|-------|------------------|-----------------|
-| R | `think hard` | 复杂依赖链 → `ultrathink` |
-| D | `ultrathink` | 简单设计 → `think hard` |
-| C | 标准 | 复杂实现 → `think hard` |
-| T | `think hard` | 标准验证 → 标准模式 |
+| Phase | Default | When to Use Extended Thinking |
+|-------|---------|-------------------------------|
+| R | 标准 | 复杂依赖链分析 |
+| D | extended | 架构设计、技术方案 |
+| C | 标准 | 复杂实现逻辑 |
+| T | 标准 | 复杂验证场景 |
 
-## 10. Feature Kind & Design Documents
+> **Note**: "extended thinking" 指 Claude 的深度思考模式，适用于需要多步推理的复杂任务。
 
-### 10.1 Feature Kind 分类
+## 11. Feature Kind & Design Documents
+
+### 11.1 Feature Kind 分类
 
 | Kind | 定义 | 产出 | 示例 |
 |------|------|------|------|
 | `code` | 需要编写代码的功能 | `src/` 代码 | doc-indexer, dependency-graph, task-manager |
 | `specification` | 定义规范或 Skill | SKILL.md 文件 | sdf-analyze, sdf-design, sdf-test |
 
-### 10.2 设计文档策略
+### 11.2 设计文档策略
 
 | Feature Kind | 需要独立设计文档? | 原因 |
 |--------------|------------------|------|
@@ -658,7 +644,7 @@ R→D 门控检查 `pending-requirements-clear` 条件：
 >
 > 因此**无需创建独立的 des-xxx.md 设计文档**，避免重复维护。
 
-### 10.3 Frontmatter 标记
+### 11.3 Frontmatter 标记
 
 ```yaml
 # 代码类 Feature
@@ -668,14 +654,14 @@ feature_kind: code
 feature_kind: specification
 ```
 
-### 10.4 D 阶段行为差异
+### 11.4 D 阶段行为差异
 
 | Feature Kind | D 阶段行为 |
 |--------------|-----------|
 | `code` | 创建 `docs/design/<domain>/des-<name>.md` |
 | `specification` | 直接在需求文档 Specification 部分完善设计，无独立设计文档 |
 
-### 10.5 决策依据
+### 11.5 决策依据
 
 此策略基于以下最佳实践：
 
@@ -685,33 +671,50 @@ feature_kind: specification
 
 **参考**: [Claude Skill Best Practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)
 
-## 11. Quick Reference
+## 12. Quick Reference
 
-### 11.1 Phase Flow
+### 12.1 Phase Flow
 
 ```
 R → D → C → T → Done
 ```
 
-### 11.2 Key Files
+### 12.2 Key Files
 
 | Type | Pattern |
 |------|---------|
 | Requirements | `docs/requirements/<domain>/feat-<name>.md` |
 | Design | `docs/design/<domain>/des-<name>.md` |
 | Test Report | `docs/test-reports/<domain>/test-<name>.md` |
-| Backlog | `docs/requirements/backlog.md` |
+| Task Store | `.solodevflow/tasks.json` |
+| Doc Standards | `.claude/steering/doc-standards.md` |
 
-### 11.3 Skills
+### 12.3 Skills
 
 | Phase | Skill |
 |-------|-------|
 | R | `.claude/skills/sdf-analyze/` |
 | D | `.claude/skills/sdf-design/` |
+| C | `.claude/skills/sdf-code/` |
 | T | `.claude/skills/sdf-test/` |
 
 ---
 
-*Workflow Specification v1.0.1*
-*Last Updated: 2026-01-05*
+*Workflow Specification v1.2.0*
+*Last Updated: 2026-01-11*
 *Maintainer: Human + AI Collaboration*
+
+**v1.2.0 Changes**:
+- Added Section 2: Adaptive Workflows (简化路径)
+- Removed implementation details (algorithms moved to code)
+- Fixed "ultrathink" → "extended thinking" terminology
+- Simplified Core Principles (reference CLAUDE.md)
+- Removed all backlog/需求池 references (unified to Task Manager)
+- Replaced ASCII workflow diagram with state transition table
+- Added doc-standards.md reference to Key Files
+- Renumbered all sections
+
+**v1.1.0 Changes**:
+- Added sdf-code Skill for C phase
+- Integrated Task Manager for requirement pool management (replaced backlog.md)
+- Updated Quick Reference with Task Store path

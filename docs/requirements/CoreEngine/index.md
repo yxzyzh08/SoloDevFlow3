@@ -19,6 +19,11 @@ features:
     status: done
     priority: critical
     path: docs/requirements/CoreEngine/feat-sdf-design.md
+  - id: feat-sdf-code
+    name: SDF-Code Skill
+    status: done
+    priority: critical
+    path: docs/requirements/CoreEngine/feat-sdf-code.md
   - id: feat-sdf-test
     name: SDF-Test Skill
     status: done
@@ -29,11 +34,6 @@ features:
     status: done
     priority: high
     path: docs/requirements/CoreEngine/feat-task-management.md
-  - id: feat-analyze-impact-enhancement
-    name: Analyze Impact Enhancement
-    status: analyzed
-    priority: high
-    path: docs/requirements/CoreEngine/feat-analyze-impact-enhancement.md
 ---
 
 # CoreEngine 领域视图
@@ -52,6 +52,6 @@ features:
 | feat-sdf-analyze | SDF-Analyze Skill | done | critical | R 阶段需求分析能力 (自举) |
 | feat-workflow-orchestration | Workflow Orchestration | done | critical | R-D-C-T 工作流编排系统 |
 | feat-sdf-design | SDF-Design Skill | done | critical | D 阶段设计能力 |
+| feat-sdf-code | SDF-Code Skill | done | critical | C 阶段编码能力 |
 | feat-sdf-test | SDF-Test Skill | done | critical | T 阶段测试验收能力 |
 | feat-task-management | Task Management | done | high | 持久化任务管理 |
-| feat-analyze-impact-enhancement | Analyze Impact Enhancement | analyzed | high | sdf-analyze 变更影响分析增强 |

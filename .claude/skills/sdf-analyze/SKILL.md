@@ -17,8 +17,9 @@ allowed-tools: Read, Write, Edit, Grep, Glob
 
 - **Document is Truth**: 需求必须写入文档，不存于 AI 记忆
 - **Dependency First**: 先分析依赖，再确定范围
-- **Backlog Driven**: 发现的新依赖进入需求池，确保无遗漏
+- **Task Manager Driven**: 发现的新依赖创建 Task，确保无遗漏
 - **Complete Before Design**: 所有依赖分析完成后才能进入 D 阶段
+- **AI-First Format**: 生成文档遵循 `doc-standards.md` 规范
 
 ## 执行工作流
 
@@ -87,7 +88,9 @@ Requirements Analysis Progress:
 ```bash
 # 必读文件
 Read docs/product_context.md    # 理解产品愿景和 Domain 注册表
-Read docs/requirements/backlog.md  # 查看需求池状态
+
+# 查看待分析需求 (使用 Task Manager)
+cd src && node dist/index.js task list --type=analyze_requirement --status=pending
 ```
 
 ### Step 2: 定位目标 Domain
@@ -317,20 +320,31 @@ cd src && npx ts-node "../.claude/skills/sdf-analyze/scripts/register-feature.ts
 - path 使用完整项目路径：`docs/requirements/<domain>/feat-<id>.md`
 - 已存在则更新，不存在则新增（幂等）
 
-### Step 5: 处理需求池
+### Step 5: 处理需求池 (Task Manager)
 
-1. **添加新发现的依赖到 backlog**：
+1. **添加新发现的依赖到任务池**：
    ```bash
-   Edit docs/requirements/backlog.md
-   # 在"待分析队列"表格中添加新行
+   cd src && node dist/index.js task add \
+     --type=analyze_requirement \
+     --title="分析需求：<依赖名称>" \
+     --priority=<high|medium|low> \
+     --source=<当前Feature ID>
    ```
 
 2. **检查需求池状态**：
-   - 如果池中有待分析需求 → 继续分析下一个
+   ```bash
+   cd src && node dist/index.js task stats
+   ```
+   - 如果有待分析需求 → 继续分析下一个
    - 如果池为空 → 可以考虑进入 D 阶段
 
-3. **优先级排序**：
-   - 被多个 Feature 依赖的需求优先
+3. **分析完成后标记任务**：
+   ```bash
+   cd src && node dist/index.js task done <task-id>
+   ```
+
+4. **优先级排序**：
+   - 被多个 Feature 依赖的需求设为 critical/high
    - 基础设施类需求优先
 
 ### Step 6: 验证并汇报
@@ -339,7 +353,7 @@ cd src && npx ts-node "../.claude/skills/sdf-analyze/scripts/register-feature.ts
 - [ ] Frontmatter 包含完整依赖声明
 - [ ] `feature_kind` 已设置 (code 或 specification)
 - [ ] 依赖分析部分已填写
-- [ ] 新发现的依赖已加入 Backlog
+- [ ] 新发现的依赖已加入任务池 (task add)
 - [ ] AC 已定义（根据 feature_kind 使用对应模板）
 - [ ] Test Strategy 已定义（根据 feature_kind 选择验收方式）
 
@@ -351,77 +365,51 @@ cd src && npx ts-node "../.claude/skills/sdf-analyze/scripts/register-feature.ts
 - Feature Kind: <code | specification>
 
 依赖分析结果：
-- 前置依赖: X 个 (Y 个已存在, Z 个新增到 Backlog)
+- 前置依赖: X 个 (Y 个已存在, Z 个新增到任务池)
 - 后续影响: N 项
 
 验收方式：
 - [ ] code → 单元测试 + 运行时验证
 - [x] specification → 试运行 + 人工验收
 
-需求池状态：
+需求池状态 (执行 task stats 获取)：
 - 待分析: <count>
-- 当前分析: <current>
+- 可执行: <executable count>
 
 [ ] 需求池为空 → 可以进入 Design 阶段
-[x] 需求池有 Z 个待分析 → 建议继续分析: backlog-xxx
+[x] 需求池有 Z 个待分析 → 建议继续分析
 ```
 
-## Backlog 管理模式 (原 /backlog 功能)
+## 需求池管理 (Task Manager)
 
-当用户需要管理需求池时，使用 Backlog 管理模式。
+当用户需要管理需求池时，使用 Task Manager CLI。
 
-**触发词**: "查看需求池"、"backlog"、"待分析需求"、"添加到需求池"
+**触发词**: "查看需求池"、"待分析需求"、"添加到需求池"、"任务列表"
 
-### Backlog 文件结构
+### 存储位置
 
-**Location**: `docs/requirements/backlog.md`
+**Location**: `.solodevflow/tasks.json` (自动管理)
 
-```markdown
----
-type: backlog
-last_updated: YYYY-MM-DD
----
+### 需求池操作
 
-# Backlog
+#### 查看待分析需求 (list)
 
-## Pending (待分析)
-
-| ID | Description | Domain | Priority | Source | Added |
-|----|-------------|--------|----------|--------|-------|
-| backlog-001 | xxx | CoreEngine | high | feat-xx | 2026-01-02 |
-
-## Completed (已完成)
-
-| ID | Feature | Completed |
-|----|---------|-----------|
-| backlog-001 | feat-xxx | 2026-01-02 |
-```
-
-### Backlog 操作
-
-#### 查看需求池 (list)
-
-**触发**: "查看需求池"、"backlog list"
+**触发**: "查看需求池"、"待分析需求"
 
 ```bash
-Read docs/requirements/backlog.md
+cd src && node dist/index.js task list --type=analyze_requirement --status=pending
 ```
 
-**输出**:
+**输出示例**:
 ```
-=== 需求池状态 ===
+=== Task List ===
 
-统计:
-- 待分析: 3
-- 已完成: 5
+| ID | Type | Title | Status | Priority | Source |
+|----|------|-------|--------|----------|--------|
+| task-xxx | analyze_requirement | 分析需求：用户认证 | pending | critical | feat-xx |
+| task-yyy | analyze_requirement | 分析需求：Session 管理 | pending | high | feat-xx |
 
-待分析队列 (按优先级排序):
-| ID | 描述 | Domain | Priority | 来源 |
-|----|------|--------|----------|------|
-| backlog-003 | 用户认证 | CoreEngine | critical | feat-xx |
-| backlog-001 | Session 管理 | CoreEngine | high | feat-xx |
-
-建议: 优先分析 backlog-003 (优先级最高)
+Total: 2 task(s)
 ```
 
 #### 添加到需求池 (add)
@@ -429,87 +417,93 @@ Read docs/requirements/backlog.md
 **触发**: "添加到需求池"、"新需求"
 
 ```bash
-# 1. 读取当前 backlog
-Read docs/requirements/backlog.md
-
-# 2. 生成新 ID (backlog-XXX，递增)
-# 3. 添加到 Pending 表格
-Edit docs/requirements/backlog.md
+cd src && node dist/index.js task add \
+  --type=analyze_requirement \
+  --title="分析需求：<需求描述>" \
+  --priority=<critical|high|medium|low> \
+  --source=<来源Feature ID>
 ```
 
-**所需信息**:
-- Description: 需求描述
-- Domain: 目标领域
-- Priority: critical | high | medium | low
-- Source: 来源 Feature (如有)
+**示例**:
+```bash
+cd src && node dist/index.js task add \
+  --type=analyze_requirement \
+  --title="分析需求：用户认证模块" \
+  --priority=high \
+  --source=feat-login
+```
 
-#### 从需求池分析 (analyze)
+#### 完成需求分析 (done)
 
-**触发**: "分析需求池"、"backlog analyze"
+**触发**: "完成分析"、"标记完成"
 
 ```bash
-# 1. 读取 backlog，选择最高优先级项
-Read docs/requirements/backlog.md
+cd src && node dist/index.js task done <task-id>
+```
 
-# 2. 提取需求描述
-# 3. 执行完整 sdf-analyze 流程 (Step 1-6)
-# 4. 分析完成后，移动到 Completed
-Edit docs/requirements/backlog.md
+**示例**:
+```bash
+cd src && node dist/index.js task done task-1736500000000
 ```
 
 #### 需求池统计 (stats)
 
-**触发**: "需求池统计"、"backlog stats"
+**触发**: "需求池统计"、"任务统计"
 
 ```bash
-Read docs/requirements/backlog.md
-# 解析并统计
+cd src && node dist/index.js task stats
 ```
 
-**输出**:
+**输出示例**:
 ```
-=== 需求池统计 ===
+=== Task Statistics ===
 
-总计: 8 项
-- 待分析: 3
-- 已完成: 5
+Total: 5 task(s)
+Executable (deps satisfied): 3
 
-按优先级分布:
-- critical: 1
-- high: 2
-- medium: 0
+By Status:
+  pending: 3
+  done: 2
 
-按 Domain 分布:
-- CoreEngine: 2
-- DocSystem: 1
+By Type:
+  analyze_requirement: 5
 
-=== 阶段转换检查 ===
-
-可进入 Design:
-- feat-xxx: 所有依赖已就绪 ✅
-
-等待依赖:
-- feat-yyy: 等待 backlog-001, backlog-003
+=== R→D Gate Status ===
+⚠️  3 pending requirement(s) - must analyze before Design:
+   - task-xxx: 分析需求：用户认证
+   - task-yyy: 分析需求：Session 管理
 ```
 
 ### 与需求分析的关系
 
-Backlog 管理是 R 阶段的辅助功能：
+需求池管理是 R 阶段的核心功能：
 
 ```
 用户描述新需求
     ↓
 sdf-analyze 执行分析
     ↓
-发现新依赖 → 自动添加到 Backlog (Step 5)
+发现新依赖 → 调用 task add 添加到任务池 (Step 5)
     ↓
-用户继续分析 Backlog 中的需求
+用户继续分析任务池中的需求
     ↓
-Backlog 清空 → 可进入 D 阶段
+task stats 显示池为空 → 可进入 D 阶段
 ```
+
+### R→D 门控集成
+
+门控检查自动查询 Task Manager：
+```bash
+cd src && node dist/index.js next <feature-id>
+```
+
+门控条件 `pending-requirements-clear` 会检查：
+- `queryTasks({ type: 'analyze_requirement', status: 'pending' })`
+- 如果存在待分析需求，阻止进入 D 阶段
 
 ## 参考资料
 
+- **文档编写规范**: `.claude/steering/doc-standards.md` (生成文档前必读)
 - **Feature 模板**: [templates/feature.md](templates/feature.md)
 - **依赖分析指南**: [references/dependency-analysis.md](references/dependency-analysis.md)
 - **状态定义**: [references/status-definitions.md](references/status-definitions.md)
