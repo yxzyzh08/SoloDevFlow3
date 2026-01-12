@@ -1,13 +1,53 @@
 ---
 type: workflow-specification
 status: active
-version: 1.2.0
-last_updated: 2026-01-11
+version: 1.3.0
+last_updated: 2026-01-12
 ---
 
 # SoloDevFlow Workflow Specification
 
 > R-D-C-T 工作流完整规范。本文档定义了 SoloDevFlow 的核心开发流程。
+
+## 0. Quick Decision (AI 优先读取)
+
+> **IMPORTANT**: AI 应首先读取本节快速定位，仅在需要详细信息时再读取后续章节。
+
+### 用户意图 → Skill 路由
+
+| 用户说 | 路径 | 触发 Skill |
+|--------|------|------------|
+| "添加/实现/新功能/需求" | R→D→C→T | `sdf-analyze` |
+| "设计/技术方案" | D→C→T | `sdf-design` |
+| "编码/写代码/开始实现" | C→T | `sdf-code` |
+| "测试/验收/验证" | T→Done | `sdf-test` |
+| "小 Bug 修复" | R→C→T | `sdf-analyze` (跳过 D) |
+| "推进/下一阶段/next" | 门控检查 | 见 Section 5 |
+| "修改规范/架构" | Document First | 见 Section 6 |
+
+### 当前状态 → 下一步动作
+
+| Status | Phase | Next Action |
+|--------|-------|-------------|
+| `proposed` | R | 开始依赖分析 |
+| `analyzing` | R | 继续分析，发现依赖则创建 Task |
+| `analyzed` | R | 检查依赖是否就绪 |
+| `waiting-deps` | R | 等待前置依赖完成 |
+| `ready-for-design` | R | 执行 R→D 门控，询问用户确认 |
+| `designing` | D | 完成设计后执行 D→C 门控 |
+| `implementing` | C | 完成编码后执行 C→T 门控 |
+| `testing` | T | 验证 AC，全部通过后执行 T→Done |
+
+### 门控检查速查
+
+| 门控 | 核心条件 | 检查方法 |
+|------|----------|----------|
+| R→D | 依赖已分析 + 无待分析 Task + 用户确认 | `/next <feature-id>` |
+| D→C | 设计文档存在 + 用户批准 | `/next <feature-id>` |
+| C→T | 代码完成 + 符合设计 | `/next <feature-id>` |
+| T→Done | AC 100% 通过 + 用户确认 | `/next <feature-id>` |
+
+---
 
 ## 1. Overview
 
@@ -33,29 +73,6 @@ Commit             →    T (Testing)          验证 + 提交
 | **Planning First** | 复杂任务使用 extended thinking |
 | **Gate Check** | 阶段转换需满足门控条件 |
 | **AC Driven** | 验收标准是唯一判定依据 |
-
-### 1.3 State Transitions
-
-| From | To | Trigger | Condition |
-|------|----|---------|-----------|
-| `proposed` | `analyzing` | 开始分析 | - |
-| `analyzing` | `analyzed` | 分析完成 | 依赖已识别 |
-| `analyzing` | `analyzing` | 发现新依赖 | 创建 Task 后继续 |
-| `analyzed` | `ready-for-design` | 检查通过 | 无待分析任务 |
-| `analyzed` | `waiting-deps` | 检查未通过 | 有前置依赖未完成 |
-| `waiting-deps` | `ready-for-design` | 依赖完成 | 前置依赖 status=done |
-| `ready-for-design` | `designing` | R→D 门控 | 用户确认 |
-| `designing` | `implementing` | D→C 门控 | 设计已批准 |
-| `implementing` | `testing` | C→T 门控 | 代码完成 |
-| `testing` | `done` | T→Done 门控 | AC 100% 通过 |
-
-**简化流程**:
-```
-R: proposed → analyzing → analyzed → ready-for-design
-D: designing
-C: implementing
-T: testing → done
-```
 
 ## 2. Adaptive Workflows (简化路径)
 
@@ -253,41 +270,9 @@ Step 5: 用户确认
 Step 6: 更新状态 + 触发下一阶段动作
 ```
 
-### 6.2 State Transition Map
+### 6.2 Transition Execution
 
-```
-R Phase:
-  proposed → analyzing → analyzed → ready-for-design
-                              ↓
-                       waiting-deps (如有未完成依赖)
-
-R → D:
-  ready-for-design → designing
-
-D → C:
-  designing → implementing
-
-C → T:
-  implementing → testing
-
-T → Done:
-  testing → done
-```
-
-### 6.3 Transition Execution
-
-#### Step 1-2: Locate & Read
-
-```bash
-# 定位 Feature
-Glob docs/requirements/**/feat-<name>.md
-
-# 读取状态
-Read <feature-file>
-# 解析 YAML Frontmatter 中的 status 字段
-```
-
-#### Step 3: Determine Target
+#### Step 1-3: Locate, Read & Determine Target
 
 | Current Status | Target Status | Transition |
 |----------------|---------------|------------|
@@ -344,11 +329,7 @@ Suggestions:
 
 #### Step 6: Execute Transition
 
-```bash
-# 更新 Feature 文档状态
-Edit docs/requirements/<domain>/feat-<name>.md
-# status: <current> → <target>
-```
+使用 Edit 工具更新 Feature 文档的 `status` 字段。
 
 **触发下一阶段动作**:
 
@@ -526,16 +507,11 @@ R 阶段分析
 
 ### 8.3 任务查询
 
-```typescript
-// 查看待分析需求
-queryTasks({ type: 'analyze_requirement', status: 'pending' })
-
-// 查看可执行任务（依赖已满足）
-getExecutableTasks()
-
-// 按优先级筛选
-queryTasks({ status: 'pending' })  // 然后按 priority 排序
-```
+| 目的 | CLI 命令 |
+|------|----------|
+| 查看待分析需求 | `node dist/index.js task list --type=analyze_requirement --status=pending` |
+| 查看可执行任务 | `node dist/index.js task list --executable` |
+| 查看所有待处理 | `node dist/index.js task list --status=pending` |
 
 ### 8.4 与 R→D 门控的关系
 
@@ -700,9 +676,16 @@ R → D → C → T → Done
 
 ---
 
-*Workflow Specification v1.2.0*
-*Last Updated: 2026-01-11*
+*Workflow Specification v1.3.0*
+*Last Updated: 2026-01-12*
 *Maintainer: Human + AI Collaboration*
+
+**v1.3.0 Changes**:
+- Added Section 0: Quick Decision (AI 快速路由入口)
+- Removed Section 1.3 (duplicate of Section 3)
+- Removed Section 6.2 State Transition Map (duplicate of Section 3.2)
+- Simplified code examples to CLI commands and concise descriptions
+- Reduced document length for better token efficiency
 
 **v1.2.0 Changes**:
 - Added Section 2: Adaptive Workflows (简化路径)
