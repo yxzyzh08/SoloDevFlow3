@@ -1,17 +1,31 @@
 ---
 name: sdf-code
+version: 1.1.0
 description: |
   SoloDevFlow C 阶段：编码实现。
   根据设计文档实现代码，追踪变更并准备测试验收。
-  当用户通过 /next 进入 C 阶段，或说"编码"、"实现"、
-  "开始写代码"、"进入开发"等意图时触发。
   输出 src/ 代码变更 + 变更记录。
+triggers:
+  - "编码"
+  - "实现"
+  - "开始写代码"
+  - "进入开发"
+  - "写代码"
+  - "/next"
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash
 ---
 
 # SDF Code Implementer
 
 > R-D-C-T 工作流的第三阶段：根据设计文档实现代码，追踪变更。
+
+## 使用示例
+
+| 用户输入 | Skill 响应 |
+|----------|-----------|
+| "开始实现 feat-xxx" | 门控检查后，加载设计文档，生成实现计划 |
+| "写代码" | 进入 C 阶段，增量实现并验证 |
+| "/next feat-xxx" | 从 D 阶段进入 C 阶段 |
 
 ## 核心原则
 

@@ -1,17 +1,31 @@
 ---
 name: sdf-test
+version: 1.1.0
 description: |
   SoloDevFlow T 阶段：测试验收。
   验证实现满足需求，确认 AC 通过并更新状态。
-  当用户通过 /next 进入 T 阶段，或说"测试"、"验收"、
-  "检查"、"验证"等意图时触发。
   输出 docs/test-reports/<domain>/test-<name>.md 验证报告。
+triggers:
+  - "测试"
+  - "验收"
+  - "检查"
+  - "验证"
+  - "检查 AC"
+  - "/next"
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash
 ---
 
 # SDF Test Verifier
 
 > R-D-C-T 工作流的最后阶段：验证实现满足需求，确认 AC 通过。
+
+## 使用示例
+
+| 用户输入 | Skill 响应 |
+|----------|-----------|
+| "验收 feat-xxx" | 完整 T 阶段流程，生成验证报告 |
+| "检查 AC" | 快速查询 AC 完成情况 |
+| "测试通过了吗" | 运行测试并汇报结果 |
 
 ## 核心理念
 

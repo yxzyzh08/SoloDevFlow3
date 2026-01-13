@@ -39,12 +39,12 @@ R (Requirements) → D (Design) → C (Coding) → T (Testing) → Done
 
 ## Skill 入口
 
-| 阶段 | Skill | 触发词 | 位置 |
-|------|-------|--------|------|
-| R | sdf-analyze | "需求分析"、"添加功能"、"新需求" | `.claude/skills/sdf-analyze/` |
-| D | sdf-design | "设计"、"技术方案" | `.claude/skills/sdf-design/` |
-| C | sdf-code | "编码"、"开始实现"、"写代码" | `.claude/skills/sdf-code/` |
-| T | sdf-test | "测试"、"验收"、"验证 AC" | `.claude/skills/sdf-test/` |
+| 阶段 | Skill | 版本 | 触发词 | 位置 |
+|------|-------|------|--------|------|
+| R | sdf-analyze | 1.1.0 | "需求分析"、"添加功能"、"新需求"、"我想要" | `.claude/skills/sdf-analyze/` |
+| D | sdf-design | 1.1.0 | "设计"、"技术方案"、"怎么实现"、"架构" | `.claude/skills/sdf-design/` |
+| C | sdf-code | 1.1.0 | "编码"、"开始写代码"、"进入开发" | `.claude/skills/sdf-code/` |
+| T | sdf-test | 1.1.0 | "测试"、"验收"、"检查 AC" | `.claude/skills/sdf-test/` |
 
 ## 常用命令
 
