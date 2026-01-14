@@ -26,14 +26,12 @@ last_updated: 2026-01-14
 
 ### 当前状态 → 下一步
 
-| Status | Next Action |
-|--------|-------------|
-| `proposed` | 开始依赖分析 |
-| `analyzing` | 继续分析，发现依赖则创建 Task |
-| `ready-for-design` | R→D 门控 + 用户确认 |
-| `designing` | 完成设计后 D→C 门控 |
-| `implementing` | 完成编码后 C→T 门控 |
-| `testing` | AC 100% 通过后 T→Done |
+| Status | Phase | Next Action |
+|--------|-------|-------------|
+| `requirements` | R | 完成依赖分析 → 门控 → `design` |
+| `design` | D | 完成设计 → 门控 → `coding` |
+| `coding` | C | 完成实现 → 门控 → `testing` |
+| `testing` | T | AC 100% 通过 → `done` |
 
 ### 门控速查
 
@@ -182,25 +180,36 @@ node dist/index.js task list --status=pending
 
 ---
 
-## 5. State Machine
+## 5. State Machine (Simplified)
+
+> **v1.4.0 简化**: 从 7 个状态精简为 5 个，每阶段一个状态。
 
 ### 5.1 Status Definitions
 
 | Status | Phase | Meaning |
 |--------|-------|---------|
-| `proposed` | R | 需求已提出 |
-| `analyzing` | R | 深度依赖分析中 |
-| `ready-for-design` | R | 可进入设计 |
-| `designing` | D | 设计方案中 |
-| `implementing` | C | 编码实现中 |
+| `requirements` | R | 需求分析中 (含依赖分析) |
+| `design` | D | 技术设计中 |
+| `coding` | C | 编码实现中 |
 | `testing` | T | 测试验收中 |
 | `done` | - | 已完成 |
 
 ### 5.2 Valid Transitions
 
 ```
-proposed → analyzing → ready-for-design → designing → implementing → testing → done
+requirements → design → coding → testing → done
+     ↑______________|  (可跳过 D 阶段)
 ```
+
+### 5.3 状态迁移表
+
+| 旧状态 (v1.3) | 新状态 (v1.4) |
+|--------------|--------------|
+| proposed, analyzing, ready-for-design | `requirements` |
+| designing | `design` |
+| implementing | `coding` |
+| testing | `testing` |
+| done | `done` |
 
 ---
 
