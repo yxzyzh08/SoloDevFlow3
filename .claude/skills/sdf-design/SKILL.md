@@ -1,17 +1,30 @@
 ---
 name: sdf-design
+version: 1.1.0
 description: |
   SoloDevFlow D 阶段：技术设计。
   将需求文档转化为结构化技术设计文档，确保架构一致性。
-  当用户通过 /next 进入 D 阶段，或说"设计"、"怎么实现"、
-  "技术方案"等意图时触发。
   输出 docs/design/<domain>/des-<name>.md 文档。
+triggers:
+  - "设计"
+  - "怎么实现"
+  - "技术方案"
+  - "架构"
+  - "/next"
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash
 ---
 
 # SDF Technical Designer
 
 > R-D-C-T 工作流的第二阶段：将需求转化为技术设计，确保架构一致性。
+
+## 使用示例
+
+| 用户输入 | Skill 响应 |
+|----------|-----------|
+| "设计 feat-user-auth" | 加载需求文档，生成技术设计 |
+| "怎么实现这个功能" | 进入设计流程，分析架构对齐 |
+| "/next feat-xxx" | 门控检查后进入 D 阶段 |
 
 ## 核心原则
 
